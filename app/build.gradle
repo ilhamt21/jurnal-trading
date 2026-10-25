@@ -1,0 +1,50 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.jurnaltrading.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.jurnaltrading.app"
+        minSdk 26
+        targetSdk 34
+        // naikkan dua angka ini setiap kali membuat versi baru
+        versionCode 1
+        versionName "1.0"
+    }
+
+    // Kunci tetap: setiap APK baru bisa dipasang di atas versi lama tanpa menghapus data.
+    signingConfigs {
+        tetap {
+            storeFile file('jurnal.keystore')
+            storePassword 'jurnal-trading-2026'
+            keyAlias 'jurnal'
+            keyPassword 'jurnal-trading-2026'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.tetap
+        }
+        debug {
+            signingConfig signingConfigs.tetap
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.11.0'
+}
