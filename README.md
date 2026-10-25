@@ -1,50 +1,32 @@
-# Jurnal Trading untuk Android
+# Jurnal Trading (web + Android, tersinkron)
 
-Aplikasi ini berisi jurnal trading yang sama dengan versi web. Bedanya, aplikasi ini berjalan **offline** di HP Anda. Trade, akun, payout, dan screenshot disimpan di dalam aplikasi.
+Satu kode untuk dua tempat:
 
-APK tidak perlu dibuat sendiri di komputer. GitHub yang membuatnya secara otomatis dan gratis.
+- **Web:** `https://<username>.github.io/jurnal-trading/`, dibuat otomatis oleh GitHub Pages dari folder `web/`.
+- **Android:** APK di menu **Releases**, juga dibuat otomatis. Isinya halaman yang sama dari folder `web/`.
 
-## Membuat APK (sekali saja, sekitar 10 menit)
+Keduanya login ke **Supabase** dengan email dan password yang sama, jadi datanya selalu sama. Setiap perangkat menyimpan salinan data sendiri, sehingga tetap bisa dipakai tanpa internet. Perubahan dikirim begitu online lagi, dan perangkat lain menerimanya saat aplikasi dibuka, saat aplikasi kembali dilihat, atau setiap 1 menit.
 
-1. Buat akun gratis di https://github.com, lalu login.
-2. Klik **+** (kanan atas) → **New repository**.
-   - Nama: `jurnal-trading`
-   - Pilih **Private**, supaya kunci tanda tangan aplikasi tidak bisa dilihat orang lain.
-   - Klik **Create repository**.
-3. Di halaman repository yang masih kosong, klik **uploading an existing file**.
-4. Ekstrak file ZIP ini di komputer. Buka folder `JurnalTrading`, pilih **semua isinya**, lalu seret ke halaman GitHub.
-   - Folder `.github` tersembunyi di beberapa komputer. Pastikan folder itu ikut terunggah. Di Windows: File Explorer → View → centang "Hidden items".
-5. Klik **Commit changes**.
-6. Buka tab **Actions**. Proses "Build APK" akan berjalan sekitar 5–8 menit. Tunggu sampai tanda hijau ✓ muncul.
-7. Buka halaman repository → **Releases** (kolom kanan) → **Jurnal Trading v1** → klik file `JurnalTrading-1.apk`.
+## Isi folder
 
-## Memasang di HP
+| File | Fungsi |
+|---|---|
+| `web/index.html` | Aplikasi jurnal (web dan Android) |
+| `web/config.js` | **Alamat dan kunci Supabase Anda.** Diisi sekali. |
+| `supabase.sql` | Perintah untuk membuat tabel di Supabase. Dijalankan sekali. |
+| `app/` | Pembungkus Android |
+| `.github/workflows/build-apk.yml` | Membuat APK dan mempublikasikan web setiap ada perubahan |
 
-1. Buka halaman **Releases** dari browser HP (login GitHub dulu karena repository-nya Private), lalu unduh file `.apk`.
-2. Buka file tersebut. Android akan meminta izin "Instal aplikasi tidak dikenal" untuk browser Anda. Izinkan.
-3. Ketuk **Pasang**. Ikon **Jurnal Trading** akan muncul di layar utama.
+## Pengaturan sekali saja
 
-Kalau muncul peringatan Play Protect, pilih **Tetap pasang**. Aplikasi ini tidak berasal dari Play Store, jadi Android tidak mengenalnya.
+1. **Supabase:** daftar di supabase.com → New project → SQL Editor → tempel isi `supabase.sql` → Run.
+2. Salin **Project URL** dan **anon / publishable key** dari Project Settings → API Keys, lalu isi ke `web/config.js` di GitHub.
+3. **GitHub:** Settings → General → ubah repository menjadi **Public** (GitHub Pages gratis hanya untuk repo publik). Lalu Settings → Pages → Source: **GitHub Actions**.
 
-## Memindahkan data dari versi web
+Catatan: setelah repo publik, kode dan file kunci tanda tangan aplikasi (`app/jurnal.keystore`) bisa dilihat orang. Data jurnal Anda **tidak** ada di repo, semuanya di Supabase dan dilindungi login. Kunci tanda tangan hanya bisa dipakai untuk membuat APK tiruan, yang tetap harus Anda pasang sendiri.
 
-1. Di jurnal versi web: tab **Trade** → **Cadangkan**. File `.json` akan tersimpan.
-2. Kirim file itu ke HP, misalnya lewat Google Drive, Telegram, atau kabel USB.
-3. Di aplikasi: tab **Trade** → **Pulihkan** → pilih file tersebut.
+## Memperbarui
 
-Semua trade, akun, payout, dan screenshot akan ikut pindah.
-
-## Penting: cadangkan secara rutin
-
-Data aplikasi hanya tersimpan di HP. Kalau aplikasi dihapus atau HP hilang, datanya ikut hilang.
-
-Biasakan menekan **Cadangkan** seminggu sekali. File cadangan tersimpan di folder **Download/JurnalTrading**. Salin file itu ke Google Drive.
-
-## Memperbarui aplikasi
-
-Kalau ada versi baru dari jurnal:
-
-1. Ganti file `app/src/main/assets/index.html` di GitHub dengan file yang baru. Caranya: buka file itu di GitHub → ikon pensil → tempel isi baru, atau unggah ulang.
-2. Di `app/build.gradle`, naikkan `versionCode` (misalnya 1 → 2) dan `versionName` (misalnya "1.0" → "1.1").
-3. Commit. GitHub akan membuat APK baru di Releases.
-4. Pasang APK baru itu di atas aplikasi lama. **Data tidak hilang**, karena semua versi ditandatangani dengan kunci yang sama (`app/jurnal.keystore`). Jangan hapus atau ganti file kunci tersebut.
+1. Ganti `web/index.html` dengan versi baru.
+2. Naikkan `versionCode` di `app/build.gradle`.
+3. Commit. Web langsung ikut terbarui. APK baru muncul di Releases dan bisa dipasang di atas versi lama tanpa kehilangan data.

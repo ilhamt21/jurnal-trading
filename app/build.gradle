@@ -11,8 +11,8 @@ android {
         minSdk 26
         targetSdk 34
         // naikkan dua angka ini setiap kali membuat versi baru
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.1"
     }
 
     // Kunci tetap: setiap APK baru bisa dipasang di atas versi lama tanpa menghapus data.
@@ -32,6 +32,13 @@ android {
         }
         debug {
             signingConfig signingConfigs.tetap
+        }
+    }
+
+    // Halaman jurnal diambil dari folder web/ (sama dengan versi web)
+    sourceSets {
+        main {
+            assets.srcDirs = ['../web']
         }
     }
 
