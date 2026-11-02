@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ilham — Trading HQ</title>
+<link rel="icon" href="icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="config.js"></script>
+<style>
+:root{
+  --bg:#0d1117;--side:#0f141b;--panel:#151a22;--border:#232a35;--row:#1c222c;--text:#e6edf3;--text2:#c4ccd6;--muted:#8b96a5;--navOn:#1b222c;--accent:#4c8dff;--onAccent:#0d1117;
+  --up:#3fb68b;--dn:#e5534b;--warn:#e0a23a;--tGreen:#14261f;--tRed:#2a1a1c;--tAmber:#241f14;
+}
+[data-theme="terang"]{--bg:#f5f6f8;--side:#fff;--panel:#fff;--border:#e1e4ea;--row:#eceef2;--text:#14171c;--text2:#3a414c;--muted:#5b6472;--navOn:#eef2fb;--accent:#2457d6;--onAccent:#fff;--up:#167c5a;--dn:#c4352e;--warn:#9a6400;--tGreen:#e3f4ec;--tRed:#fbe7e5;--tAmber:#fbf0dc}
+[data-theme="zen"]{--bg:#0f1714;--side:#121c18;--panel:#16211d;--border:#24332d;--row:#1c2924;--text:#e3efe9;--text2:#c3d4cc;--muted:#8fa59b;--navOn:#1d2b25;--accent:#5fd3a0;--onAccent:#0f1714;--up:#5fd3a0;--dn:#e8836f;--tGreen:#173126;--tRed:#33201c;--tAmber:#2e2a18}
+[data-theme="senja"]{--bg:#1a1520;--side:#1e1825;--panel:#241c2b;--border:#3a2e44;--row:#2c2334;--text:#f2e9ef;--text2:#dccfd8;--muted:#b3a3b8;--navOn:#2e2436;--accent:#f4a261;--onAccent:#1a1520;--up:#8fd6b4;--dn:#f07e7e;--tGreen:#1f2f2a;--tRed:#3a2027;--tAmber:#3a2a1c}
+[data-theme="kertas"]{--bg:#f3eee5;--side:#f9f5ee;--panel:#fbf8f2;--border:#e2d9c8;--row:#ece4d6;--text:#2b2620;--text2:#4a4238;--muted:#6b6256;--navOn:#efe6d6;--accent:#b4572f;--onAccent:#fff;--up:#2f7d55;--dn:#b23b30;--warn:#8a5a00;--tGreen:#e2efe4;--tRed:#f5e1dc;--tAmber:#f5e9d2}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 'IBM Plex Sans',system-ui,sans-serif}
+a{color:var(--accent)}
+button,input,select{font:inherit;color:inherit}
+.mono{font-family:'IBM Plex Mono',monospace}
+.muted{color:var(--muted)}
+.app{display:flex;flex-wrap:wrap;min-height:100vh}
+aside{flex:1 1 220px;max-width:100%;border-right:1px solid var(--border);background:var(--side);padding:20px 14px;display:flex;flex-direction:column;gap:20px}
+.brand{display:flex;align-items:center;gap:10px;padding:0 6px}
+.logo{width:32px;height:32px;border-radius:6px;background:var(--accent);color:var(--onAccent);font-weight:600;display:flex;align-items:center;justify-content:center}
+.brand b{display:block;letter-spacing:.02em}.brand small{font-size:11px;color:var(--muted);letter-spacing:.08em}
+nav{display:flex;flex-direction:column;gap:2px}
+nav a{display:flex;gap:10px;align-items:center;padding:10px;border-radius:6px;text-decoration:none;color:var(--muted)}
+nav a.on{background:var(--navOn);color:var(--text)}
+main{flex:999 1 720px;min-width:0;padding:20px 24px 40px;display:flex;flex-direction:column;gap:18px}
+.card{border:1px solid var(--border);border-radius:8px;background:var(--panel)}
+.head{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border)}
+.head h2{margin:0;font-size:14px;font-weight:600}
+.lbl{font-size:11px;letter-spacing:.07em;color:var(--muted)}
+.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px}
+.top h1{margin:0;font-size:20px;font-weight:600}
+.btn{border:1px solid var(--border);background:transparent;border-radius:6px;padding:8px 12px;cursor:pointer;min-height:36px}
+.btn.pri{background:var(--accent);color:var(--onAccent);border-color:var(--accent);font-weight:600}
+.seg{display:flex;gap:2px;border:1px solid var(--border);border-radius:6px;padding:2px}
+.seg button{border:0;background:transparent;color:var(--muted);padding:6px 10px;border-radius:4px;cursor:pointer;min-height:32px}
+.seg button[aria-pressed="true"]{background:var(--border);color:var(--text)}
+.themes{display:flex;gap:4px;padding:3px;border:1px solid var(--border);border-radius:999px}
+.themes button{width:30px;height:30px;border-radius:50%;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center;border:2px solid var(--border)}
+.themes button[aria-pressed="true"]{border-color:var(--text)}
+.themes span{width:12px;height:12px;border-radius:50%}
+/* sessions */
+.tl{position:relative;height:64px;margin:4px 0 6px}
+.tl .track{position:absolute;left:0;right:0;top:24px;height:24px;border-radius:6px;background:var(--side)}
+.tl .blk{position:absolute;top:24px;height:24px;border-radius:6px;border-top:2px solid}
+.tl .nm{position:absolute;top:2px;font-size:12px;font-weight:600;white-space:nowrap}
+.tl .now{position:absolute;top:16px;bottom:6px;width:2px;margin-left:-1px;background:var(--text)}
+.tl .nowt{position:absolute;bottom:-14px;transform:translateX(-50%);font-size:11px;padding:2px 6px;border-radius:4px;background:var(--text);color:var(--bg)}
+.ticks{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding-top:4px}
+.sgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.scard{padding:10px 12px;border-radius:6px;background:var(--side);border-left:3px solid;display:flex;flex-direction:column;gap:6px}
+.bar{height:4px;border-radius:2px;background:var(--side);overflow:hidden}.bar i{display:block;height:4px;border-radius:2px}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:500}
+/* kpi */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.kpis>div{padding:14px 16px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:4px}
+.kpis b{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:500}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;color:var(--muted);font-size:11px;letter-spacing:.06em;font-weight:500;padding:10px 12px}
+td{padding:11px 12px;border-top:1px solid var(--border)}
+.num{text-align:right;font-family:'IBM Plex Mono',monospace}
+.split{display:flex;flex-wrap:wrap;gap:18px;align-items:stretch}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.pairs{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:6px;padding:12px 14px}
+.pairs button{border:1px solid var(--border);background:var(--side);border-radius:6px;padding:8px 4px;cursor:pointer;font-size:12px;font-weight:500;min-height:36px}
+.pairs button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.row{display:flex;justify-content:space-between;gap:10px;padding:9px 14px;border-top:1px solid var(--row);font-size:13px}
+.field{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted)}
+.field input,.field select{padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--side);font-size:13px;min-width:0}
+.chk{display:flex;gap:10px;align-items:center;width:100%;padding:11px 14px;border:0;border-top:1px solid var(--row);background:transparent;text-align:left;cursor:pointer;min-height:44px}
+.box{width:18px;height:18px;border-radius:4px;flex:none;display:flex;align-items:center;justify-content:center;border:1px solid var(--muted);color:var(--onAccent)}
+.chk[aria-pressed="true"] .box{background:var(--accent);border-color:var(--accent)}
+.res{margin:12px 14px 14px;padding:10px 12px;border-radius:6px;font-weight:600;font-size:13px}
+.folders{display:flex;gap:4px}.folders button{width:40px;height:32px;border-radius:6px;border:1px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:.45}
+.folders button[aria-pressed="true"]{opacity:1;background:var(--side)}
+.news{display:grid;grid-template-columns:52px 44px 16px minmax(0,1fr);gap:8px;align-items:center;padding:9px 14px;border-top:1px solid var(--row);font-size:13px}
+.news span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.player{display:flex;flex-direction:column;gap:10px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--panel)}
+.player iframe{width:100%;aspect-ratio:16/9;border:0;border-radius:6px;display:none}
+.player.show iframe{display:block}
+.empty{padding:16px 14px;color:var(--muted);font-size:13px}
+.st{display:inline-flex;align-items:center;gap:6px;font-size:12px}.st i{width:7px;height:7px;border-radius:50%;display:inline-block}
+#chart{height:520px}
+@media (max-width:760px){main{padding:16px}#chart{height:420px}aside{border-right:0;border-bottom:1px solid var(--border)}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside>
+  <div class="brand"><div class="logo">IT</div><div><b>ILHAM</b><small>TRADING HQ</small></div></div>
+  <nav aria-label="Menu utama">
+    <a href="#" class="on">Ringkasan</a>
+    <a href="./">Jurnal</a>
+    <a href="https://id.tradingview.com/chart/qSjZ1ulw/" target="_blank" rel="noopener">TradingView</a>
+  </nav>
+  <div class="player" id="player">
+    <div style="display:flex;justify-content:space-between;align-items:center"><span class="lbl">MODE FOKUS</span><span class="lbl" id="musicState">mati</span></div>
+    <label class="field">Playlist instrumental
+      <select id="musicSel">
+        <option value="jfKfPfyJRdk">Lo-fi untuk fokus</option>
+        <option value="4xDzrJKXOOY">Synthwave santai</option>
+        <option value="rUxyKA_-grg">Lo-fi malam tenang</option>
+        <option value="5yx6BWlEVcY">Jazzy &amp; lo-fi</option>
+        <option value="custom">Link YouTube sendiri…</option>
+      </select>
+    </label>
+    <button class="btn pri" id="musicBtn" type="button">Putar musik</button>
+    <iframe id="musicFrame" title="Pemutar musik" allow="autoplay; encrypted-media"></iframe>
+  </div>
+</aside>
+
+<main>
+  <div class="top">
+    <div><h1>Ringkasan</h1><span class="muted" id="clock" style="font-size:12px"></span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+      <div class="themes" role="group" aria-label="Pilih tema" id="themes"></div>
+      <a class="btn pri" href="./" style="text-decoration:none">+ Catat setup</a>
+    </div>
+  </div>
+
+  <section class="card" aria-labelledby="sesi-h" style="padding:16px;display:flex;flex-direction:column;gap:12px">
+    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <h2 id="sesi-h" style="margin:0;font-size:14px">Sesi hari ini</h2>
+        <div class="seg" role="group" aria-label="Zona waktu" id="tzSeg">
+          <button type="button" data-tz="ny" class="mono">New York</button>
+          <button type="button" data-tz="-5" class="mono">UTC−5</button>
+          <button type="button" data-tz="-4" class="mono">UTC−4</button>
+        </div>
+      </div>
+      <span class="chip" id="sessChip"></span>
+    </div>
+    <div class="tl" id="tl"><div class="track"></div></div>
+    <div class="ticks mono"><span>17:00</span><span>21:00</span><span>01:00</span><span>05:00</span><span>09:00</span><span>13:00</span><span>17:00</span></div>
+    <div class="sgrid" id="sgrid"></div>
+    <span class="muted" style="font-size:11px">Dimulai dari open Daily 17:00 · tanda jam = open tiap candle H4 · <span id="h4left"></span></span>
+  </section>
+
+  <div class="card kpis" id="kpis"></div>
+
+  <section class="card" aria-labelledby="akun-h">
+    <div class="head"><h2 id="akun-h">Akun funded</h2><span class="muted" style="font-size:12px" id="syncInfo"></span></div>
+    <div style="overflow-x:auto" id="accWrap"></div>
+  </section>
+
+  <div class="split">
+    <section class="card" aria-labelledby="chart-h" style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column">
+      <div class="head">
+        <h2 id="chart-h"><span id="chartSym">FOREXCOM:USDCHF</span></h2>
+        <div class="seg" role="group" aria-label="Timeframe" id="tfSeg">
+          <button type="button" data-tf="15">M15</button><button type="button" data-tf="60">H1</button><button type="button" data-tf="240">H4</button><button type="button" data-tf="D">D</button>
+        </div>
+      </div>
+      <div id="chart"></div>
+      <div class="pairs" id="pairs" aria-label="Pilih pair"></div>
+      <div class="muted" style="font-size:11px;padding:0 14px 12px">Garis open Daily/H4 dan scanner 28 pair ada di indikator "HTF Candles + SMT PSP" di TradingView Anda.</div>
+    </section>
+
+    <section class="card" aria-labelledby="calc-h" style="flex:1 1 320px;display:flex;flex-direction:column">
+      <div class="head"><h2 id="calc-h">Kalkulator posisi</h2></div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px 14px">
+        <label class="field">Pair<select id="cPair"></select></label>
+        <label class="field">Risiko per akun (%)<input id="cRisk" type="number" step="0.1" value="0.5"></label>
+        <label class="field">Entry<input id="cEntry" type="number" step="any" placeholder="0.82344"></label>
+        <label class="field">Stop loss<input id="cSl" type="number" step="any" placeholder="0.82536"></label>
+        <label class="field" style="grid-column:1/-1">Nilai pip per 1 lot (USD)<input id="cPv" type="number" step="any" placeholder="otomatis untuk pair USD"></label>
+      </div>
+      <div id="cOut"></div>
+      <div id="cWarn"></div>
+    </section>
+  </div>
+
+  <div class="grid3">
+    <section class="card" aria-labelledby="news-h">
+      <div class="head">
+        <div><h2 id="news-h">Berita hari ini</h2><span class="muted" style="font-size:11px" id="newsSrc">Forex Factory</span></div>
+        <div class="folders" role="group" aria-label="Filter dampak" id="folders"></div>
+      </div>
+      <div id="newsList"><div class="empty">Memuat…</div></div>
+    </section>
+
+    <section class="card" aria-labelledby="check-h" style="display:flex;flex-direction:column">
+      <div class="head"><h2 id="check-h">Checklist sebelum entry</h2><span class="mono" style="font-size:12px" id="ckCount"></span></div>
+      <div style="padding:12px 14px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--row)">
+        <span class="lbl">MODEL TIMEFRAME</span>
+        <div class="seg" role="group" aria-label="Model timeframe" id="modelSeg">
+          <button type="button" data-m="B" style="flex:1">B · Daily → H1</button>
+          <button type="button" data-m="A" style="flex:1">A · H4 → M15</button>
+        </div>
+      </div>
+      <button type="button" class="chk" data-c="bias"><span class="box">✓</span><span>1 · Bias Daily searah</span></button>
+      <button type="button" class="chk" data-c="pos"><span class="box">✓</span><span><span id="posLbl"></span><br><span class="muted" style="font-size:11px">Sell di bawah, buy di atas</span></span></button>
+      <div class="row" style="align-items:center;flex-wrap:wrap">
+        <span><span id="smtLbl"></span><br><span class="muted" style="font-size:11px" id="smtSub"></span></span>
+        <div class="seg" role="group" aria-label="SMT ada?" id="smtSeg"><button type="button" data-s="ya">Ya</button><button type="button" data-s="tidak">Tidak</button></div>
+      </div>
+      <div class="res" id="ckRes"></div>
+      <button type="button" class="btn" id="ckReset" style="margin:0 14px 14px">Reset checklist</button>
+    </section>
+
+    <section class="card" aria-labelledby="stat-h">
+      <div class="head"><h2 id="stat-h">Statistik setup</h2><span class="muted" style="font-size:12px">dari jurnal</span></div>
+      <div id="stats"></div>
+    </section>
+  </div>
+</main>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const ls = { get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } }, set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+
+/* ---------- tema ---------- */
+const THEMES = [["malam","Malam","#0d1117","#4c8dff"],["terang","Terang profesional","#f5f6f8","#2457d6"],["zen","Zen hijau","#0f1714","#5fd3a0"],["senja","Senja lo-fi","#1a1520","#f4a261"],["kertas","Kertas santai","#f3eee5","#b4572f"]];
+function setTheme(t){ document.documentElement.dataset.theme = t; ls.set("hq-theme", t); [...$("themes").children].forEach(b => b.setAttribute("aria-pressed", b.dataset.t === t)); }
+$("themes").innerHTML = THEMES.map(([k,n,bg,ac]) => `<button type="button" data-t="${k}" aria-label="Tema ${n}" title="${n}" style="background:${bg}"><span style="background:${ac}"></span></button>`).join("");
+$("themes").onclick = e => { const b = e.target.closest("button"); if (b) { setTheme(b.dataset.t); loadChart(); } };
+setTheme(ls.get("hq-theme", "malam"));
+
+/* ---------- waktu New York ---------- */
+let tzMode = ls.get("hq-tz", "ny");
+function nyNow(){
+  const now = new Date();
+  if (tzMode === "ny") {
+    const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", weekday: "short" }).formatToParts(now).map(x => [x.type, x.value]));
+    return { h: +p.hour % 24, m: +p.minute, s: +p.second, label: "New York" };
+  }
+  const off = +tzMode, d = new Date(now.getTime() + off * 3600000);
+  return { h: d.getUTCHours(), m: d.getUTCMinutes(), s: d.getUTCSeconds(), label: "UTC" + (off < 0 ? "−" : "+") + Math.abs(off) };
+}
+const SESS = [
+  { n: "Asia", a: 20*60, b: 24*60, c: "#a78bfa" },
+  { n: "London", a: 2*60, b: 5*60, c: "#4c8dff" },
+  { n: "NY AM", a: 7*60, b: 11*60, c: "#2dd4bf" },
+  { n: "NY PM", a: 13*60+30, b: 16*60, c: "#e0a23a" }
+];
+const rel = min => ((min - 17*60) % 1440 + 1440) % 1440;           // menit sejak open Daily 17:00
+const fmtDur = m => m >= 60 ? `${Math.floor(m/60)}j ${String(m%60).padStart(2,"0")}m` : `${m}m`;
+const hhmm = min => `${String(Math.floor(min/60)%24).padStart(2,"0")}:${String(min%60).padStart(2,"0")}`;
+function paintTime(){
+  const t = nyNow(), cur = t.h*60 + t.m, r = rel(cur);
+  $("clock").textContent = `${new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} · ${hhmm(cur)} ${t.label}`;
+  let html = '<div class="track"></div>', cards = "", chip = null;
+  for (const s of SESS) {
+    const ra = rel(s.a), rb = ra + (s.b - s.a), left = ra/1440*100, w = (s.b - s.a)/1440*100;
+    html += `<div class="blk" style="left:${left}%;width:${w}%;background:${s.c}2e;border-color:${s.c}"></div><span class="nm" style="left:${left}%;color:${s.c}">${s.n}</span>`;
+    let st, pct;
+    if (r >= rb) { st = "Selesai"; pct = 100; }
+    else if (r >= ra) { st = "Berlangsung"; pct = Math.round((r - ra)/(rb - ra)*100); chip = { s, left: rb - r }; }
+    else { st = "Dalam " + fmtDur(ra - r); pct = 0; }
+    cards += `<div class="scard" style="border-color:${s.c}"><div style="display:flex;justify-content:space-between;gap:6px"><b style="font-size:13px">${s.n}</b><span style="font-size:11px;color:${st==="Berlangsung"?s.c:"var(--muted)"}">${st}</span></div><span class="mono" style="font-size:12px;color:var(--text2)">${hhmm(s.a)}–${hhmm(s.b)}</span><div class="bar"><i style="width:${pct}%;background:${s.c}"></i></div></div>`;
+  }
+  const np = r/1440*100;
+  html += `<div class="now" style="left:${np}%"></div><span class="nowt mono" style="left:${np}%">${hhmm(cur)}</span>`;
+  $("tl").innerHTML = html; $("sgrid").innerHTML = cards;
+  if (chip) { $("sessChip").textContent = `${chip.s.n} berlangsung · sisa ${fmtDur(chip.left)}`; $("sessChip").style.cssText = `background:${chip.s.c}26;color:${chip.s.c}`; }
+  else { const nx = SESS.map(s => ({ s, d: rel(s.a) - r })).filter(x => x.d > 0).sort((a,b) => a.d - b.d)[0]; $("sessChip").textContent = nx ? `${nx.s.n} mulai dalam ${fmtDur(nx.d)}` : "Menunggu open Daily"; $("sessChip").style.cssText = "background:var(--side);color:var(--muted)"; }
+  const h4 = 240 - (r % 240), dOpen = 1440 - r;
+  $("h4left").textContent = `close H4 berikutnya ${fmtDur(h4)} · open Daily berikutnya ${fmtDur(dOpen)}`;
+}
+$("tzSeg").onclick = e => { const b = e.target.closest("button"); if (!b) return; tzMode = b.dataset.tz; ls.set("hq-tz", tzMode); paintTz(); paintTime(); };
+function paintTz(){ [...$("tzSeg").children].forEach(b => b.setAttribute("aria-pressed", b.dataset.tz === tzMode)); }
+paintTz(); paintTime(); setInterval(paintTime, 20000);
+
+/* ---------- akun & jurnal (data dari aplikasi jurnal, origin yang sama) ---------- */
+const CFG = window.JURNAL_CONFIG;
+let sess = ls.get("jtd-sb-session", null), accounts = [], trades = [];
+const uk = k => `jtd-${k}:${sess ? sess.user.id : "-"}`;
+function loadCache(){ accounts = ls.get(uk("acc"), []) || []; trades = ls.get(uk("trades"), []) || []; }
+async function token(){
+  if (!sess) return null;
+  if (sess.expires_at - 90 < Date.now()/1000) {
+    const r = await fetch(`${CFG.url}/auth/v1/token?grant_type=refresh_token`, { method: "POST", headers: { apikey: CFG.key, "Content-Type": "application/json" }, body: JSON.stringify({ refresh_token: sess.refresh_token }) });
+    if (!r.ok) return null;
+    const j = await r.json();
+    sess = { access_token: j.access_token, refresh_token: j.refresh_token, expires_at: j.expires_at || Math.floor(Date.now()/1000) + (j.expires_in || 3600), user: { id: j.user.id, email: j.user.email } };
+    ls.set("jtd-sb-session", sess);
+  }
+  return sess.access_token;
+}
+async function pull(table){
+  const t = await token(); if (!t) return null;
+  const out = [];
+  for (let off = 0; off < 20000; off += 1000) {
+    const r = await fetch(`${CFG.url}/rest/v1/${table}?select=id,data,deleted&limit=1000&offset=${off}`, { headers: { apikey: CFG.key, Authorization: `Bearer ${t}` } });
+    if (!r.ok) return null;
+    const rows = await r.json(); out.push(...rows); if (rows.length < 1000) break;
+  }
+  return out.filter(x => !x.deleted).map(x => ({ ...x.data, id: x.id }));
+}
+async function refreshData(){
+  loadCache(); renderAll();
+  if (!CFG || !sess) { $("syncInfo").innerHTML = `Belum login · <a href="./">masuk di jurnal</a>`; return; }
+  try {
+    const [a, t] = await Promise.all([pull("accounts"), pull("trades")]);
+    if (a) accounts = a; if (t) trades = t;
+    $("syncInfo").textContent = a ? `Tersinkron · ${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}` : "Memakai data tersimpan di perangkat";
+  } catch { $("syncInfo").textContent = "Offline · memakai data tersimpan"; }
+  renderAll();
+}
+const has = v => v !== "" && v != null && isFinite(+v);
+function tradeR(t){
+  const e = +t.entry, s = +t.sl, dir = t.arah === "BUY" ? 1 : -1, risk = has(t.entry) && has(t.sl) ? Math.abs(e - s) : 0;
+  switch (t.status) {
+    case "tp": if (+t.rr > 0) return +t.rr; return risk && has(t.tp) ? dir * (+t.tp - e) / risk : null;
+    case "sl": return -1;
+    case "be": return 0;
+    case "manual": return has(t.rman) ? +t.rman : null;
+    default: if (has(t.exit) && risk) return dir * (+t.exit - e) / risk; return null;
+  }
+}
+const money = v => (v < 0 ? "−$" : "$") + Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: 0 });
+const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+function accStats(a){
+  const saldo = +a.saldo || 0, risk = saldo * (+a.risk || 1) / 100;
+  const ts = trades.filter(t => t.akun === a.id).map(t => ({ t, R: tradeR(t) })).filter(x => has(x.t.pl) || x.R != null)
+    .sort((x, y) => `${x.t.tgl} ${x.t.jam||""}` < `${y.t.tgl} ${y.t.jam||""}` ? -1 : 1);
+  let bal = saldo, minBal = saldo; const days = {};
+  const wd = (a.payouts || []).reduce((s, p) => s + (+p.potong || 0), 0), payout = (a.payouts || []).reduce((s, p) => s + (+p.jumlah || 0), 0);
+  for (const { t, R } of ts) { const v = has(t.pl) ? +t.pl : R * risk; bal += v; minBal = Math.min(minBal, bal); days[t.tgl] = (days[t.tgl] || 0) + v; }
+  bal -= wd;
+  const today = days[todayISO()] || 0, targetAmt = saldo * (+a.target || 0) / 100, dailyAmt = saldo * (+a.daily || 0) / 100, maxAmt = saldo * (+a.max || 0) / 100;
+  const pnl = bal + wd - saldo, ddUsed = saldo - Math.min(minBal, bal + wd);
+  return { saldo, bal, pnl, today, targetAmt, dailyAmt, maxAmt, dailyUsed: Math.max(0, -today), maxUsed: Math.max(0, ddUsed), payout };
+}
+function renderAcc(){
+  const list = accounts.filter(a => a.status !== "Arsip" && a.status !== "Gagal");
+  if (!list.length) { $("accWrap").innerHTML = `<div class="empty">Belum ada akun. Tambahkan akun funded di <a href="./">jurnal</a>, nanti otomatis muncul di sini.</div>`; return; }
+  const bar = (used, max, col) => { const p = max ? Math.min(100, used/max*100) : 0; return `<div class="bar" style="margin-top:4px"><i style="width:${p}%;background:${col}"></i></div>`; };
+  const rows = list.map(a => {
+    const s = accStats(a), dP = s.dailyAmt ? s.dailyUsed/s.dailyAmt : 0, mP = s.maxAmt ? s.maxUsed/s.maxAmt : 0;
+    const bad = dP >= 1 || mP >= 1, warn = dP >= .5 || mP >= .5;
+    const st = bad ? ["Batas terlampaui","var(--dn)"] : warn ? ["Hati-hati","var(--warn)"] : ["Aman","var(--up)"];
+    const tg = s.targetAmt ? Math.max(0, s.pnl)/s.targetAmt : 0;
+    return `<tr><td><b>${esc(a.nama)}</b><br><span class="muted" style="font-size:12px">${esc(a.firm||"")} · ${esc(a.fase||"")}</span></td>
+      <td class="num">${money(s.bal)}</td><td class="num" style="color:${s.today>0?"var(--up)":s.today<0?"var(--dn)":"inherit"}">${s.today ? (s.today>0?"+":"") + money(s.today) : "—"}</td>
+      <td style="min-width:130px"><span class="mono" style="font-size:12px">${s.targetAmt ? `${money(Math.max(0,s.pnl))} / ${money(s.targetAmt)}` : "—"}</span>${bar(tg,1,"var(--accent)")}</td>
+      <td style="min-width:120px"><span class="mono" style="font-size:12px">${s.dailyAmt ? `${money(s.dailyUsed)} / ${money(s.dailyAmt)}` : "—"}</span>${bar(s.dailyUsed,s.dailyAmt,dP>=.5?"var(--warn)":"var(--up)")}</td>
+      <td style="min-width:120px"><span class="mono" style="font-size:12px">${s.maxAmt ? `${money(s.maxUsed)} / ${money(s.maxAmt)}` : "—"}</span>${bar(s.maxUsed,s.maxAmt,"var(--muted)")}</td>
+      <td><span class="st" style="color:${st[1]}"><i style="background:${st[1]}"></i>${st[0]}</span></td></tr>`;
+  }).join("");
+  $("accWrap").innerHTML = `<table style="min-width:820px"><thead><tr><th>AKUN</th><th class="num">EQUITY</th><th class="num">HARI INI</th><th>TARGET</th><th>DAILY DD TERPAKAI</th><th>MAX DD TERPAKAI</th><th>STATUS</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function renderKpi(){
+  const list = accounts.filter(a => a.status !== "Arsip" && a.status !== "Gagal"), ss = list.map(accStats);
+  const eq = ss.reduce((x, s) => x + s.bal, 0), tod = ss.reduce((x, s) => x + s.today, 0);
+  const tg = ss.filter(s => s.targetAmt), tgAvg = tg.length ? tg.reduce((x, s) => x + Math.max(0, s.pnl)/s.targetAmt, 0)/tg.length*100 : null;
+  const ck = ckState(), done = (ck.bias?1:0) + (ck.pos?1:0) + (ck.smt==="ya"?1:0);
+  const k = [["TOTAL EQUITY", list.length ? money(eq) : "—", `${list.length} akun aktif`, "inherit"], ["P&L HARI INI", list.length ? (tod>=0?"+":"") + money(tod) : "—", "dari jurnal", tod>0?"var(--up)":tod<0?"var(--dn)":"inherit"], ["TARGET RATA-RATA", tgAvg==null ? "—" : Math.round(tgAvg) + "%", "menuju target", "inherit"], ["CHECKLIST", `${done}/3`, done===3 ? "siap entry" : "belum lengkap", done===3?"var(--up)":"inherit"]];
+  $("kpis").innerHTML = k.map(([l, v, s, c]) => `<div><span class="lbl">${l}</span><b style="color:${c}">${v}</b><span class="muted" style="font-size:12px">${s}</span></div>`).join("");
+}
+function renderStats(){
+  const closed = trades.map(tradeR).filter(r => r != null), n = closed.length, w = closed.filter(r => r > 0).length, tot = closed.reduce((a, b) => a + b, 0);
+  const pay = accounts.reduce((x, a) => x + (a.payouts || []).reduce((s, p) => s + (+p.jumlah || 0), 0), 0);
+  const items = [["TRADE TERCATAT", trades.length], ["RATA-RATA R", n ? (tot/n >= 0 ? "+" : "") + (tot/n).toFixed(2) + "R" : "—"], ["WIN RATE", n ? Math.round(w/n*100) + "%" : "—"], ["TOTAL PAYOUT", money(pay)]];
+  $("stats").innerHTML = `<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr))">${items.map(([l, v]) => `<div style="padding:12px 14px;border-top:1px solid var(--row)"><span class="lbl">${l}</span><div class="mono" style="font-size:18px">${v}</div></div>`).join("")}</div>
+    <div style="padding:0 14px 14px"><div style="display:flex;justify-content:space-between" class="lbl"><span>SAMPEL MENUJU 100 TRADE</span><span class="mono">${Math.min(n,100)}/100</span></div><div class="bar" style="margin-top:4px"><i style="width:${Math.min(100,n)}%;background:var(--accent)"></i></div></div>`;
+}
+function renderAll(){ renderAcc(); renderKpi(); renderStats(); calc(); }
+
+/* ---------- chart TradingView ---------- */
+const PAIRS = ["EURUSD","GBPUSD","AUDUSD","NZDUSD","USDJPY","USDCHF","USDCAD","EURGBP","EURJPY","EURCHF","EURAUD","EURNZD","EURCAD","GBPJPY","GBPCHF","GBPAUD","GBPNZD","GBPCAD","AUDJPY","AUDCHF","AUDNZD","AUDCAD","NZDJPY","NZDCHF","NZDCAD","CADJPY","CADCHF","CHFJPY"];
+let sym = ls.get("hq-sym", "USDCHF"), tf = ls.get("hq-tf", "60");
+$("pairs").innerHTML = PAIRS.map(p => `<button type="button" data-p="${p}">${p}</button>`).join("");
+$("pairs").onclick = e => { const b = e.target.closest("button"); if (!b) return; sym = b.dataset.p; ls.set("hq-sym", sym); $("cPair").value = sym; loadChart(); calc(); };
+$("tfSeg").onclick = e => { const b = e.target.closest("button"); if (!b) return; tf = b.dataset.tf; ls.set("hq-tf", tf); loadChart(); };
+let tvReady = null;
+function tvScript(){ return tvReady ||= new Promise((res, rej) => { const s = document.createElement("script"); s.src = "https://s3.tradingview.com/tv.js"; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }
+async function loadChart(){
+  $("chartSym").textContent = "FOREXCOM:" + sym;
+  [...$("pairs").children].forEach(b => b.setAttribute("aria-pressed", b.dataset.p === sym));
+  [...$("tfSeg").children].forEach(b => b.setAttribute("aria-pressed", b.dataset.tf === tf));
+  try { await tvScript(); } catch { $("chart").innerHTML = '<div class="empty">Chart TradingView tidak bisa dimuat. Periksa koneksi internet.</div>'; return; }
+  $("chart").innerHTML = "";
+  new TradingView.widget({
+    container_id: "chart", autosize: true, symbol: "FOREXCOM:" + sym, interval: tf, timezone: "America/New_York",
+    theme: "light", style: "1", locale: "id", hide_side_toolbar: false, allow_symbol_change: true, withdateranges: false, save_image: false,
+    overrides: {
+      "paneProperties.background": "#ffffff", "paneProperties.backgroundType": "solid",
+      "paneProperties.vertGridProperties.color": "rgba(0,0,0,0)", "paneProperties.horzGridProperties.color": "rgba(0,0,0,0)",
+      "mainSeriesProperties.candleStyle.upColor": "#ffffff", "mainSeriesProperties.candleStyle.downColor": "#000000",
+      "mainSeriesProperties.candleStyle.borderUpColor": "#000000", "mainSeriesProperties.candleStyle.borderDownColor": "#000000",
+      "mainSeriesProperties.candleStyle.wickUpColor": "#000000", "mainSeriesProperties.candleStyle.wickDownColor": "#000000"
+    }
+  });
+}
+
+/* ---------- kalkulator ---------- */
+$("cPair").innerHTML = PAIRS.map(p => `<option>${p}</option>`).join(""); $("cPair").value = sym;
+["cPair","cRisk","cEntry","cSl","cPv"].forEach(id => $(id).addEventListener("input", calc));
+$("cPair").addEventListener("change", () => { $("cPv").value = ""; calc(); });
+function pipValue(pair, price){
+  const q = pair.slice(3), b = pair.slice(0, 3), pip = q === "JPY" ? 0.01 : 0.0001;
+  if (q === "USD") return 10;
+  if (b === "USD" && price) return pip * 100000 / price;
+  return null;
+}
+function calc(){
+  const pair = $("cPair").value, e = +$("cEntry").value, s = +$("cSl").value, risk = +$("cRisk").value || 0;
+  const pip = pair.endsWith("JPY") ? 0.01 : 0.0001, slPips = e && s ? Math.abs(e - s) / pip : 0;
+  const auto = pipValue(pair, e), pv = +$("cPv").value || auto;
+  $("cPv").placeholder = auto ? `otomatis: ${auto.toFixed(2)}` : "isi manual untuk pair silang";
+  const list = accounts.filter(a => a.status !== "Arsip" && a.status !== "Gagal");
+  if (!slPips || !pv) { $("cOut").innerHTML = `<div class="empty">${!slPips ? "Isi entry dan stop loss." : "Isi nilai pip per lot untuk pair ini."}</div>`; $("cWarn").innerHTML = ""; return; }
+  const rows = (list.length ? list : [{ nama: "Contoh 10k", saldo: 10000 }]).map(a => { const usd = (+a.saldo || 0) * risk / 100, lot = Math.floor(usd / (slPips * pv) * 100) / 100; return `<div class="row"><span>${esc(a.nama)}</span><span class="mono">${lot.toFixed(2)} lot · ${money(usd)}</span></div>`; }).join("");
+  $("cOut").innerHTML = `<div class="row muted" style="border-top:0"><span>SL ${slPips.toFixed(1)} pip</span><span>pip/lot $${pv.toFixed(2)}</span></div>` + rows;
+  $("cWarn").innerHTML = list.length > 1 ? `<div class="res" style="background:var(--tAmber);color:var(--warn);font-weight:500">Kalau diambil di ${list.length} akun sekaligus, satu SL = ${list.length} akun turun bersamaan.</div>` : "";
+}
+
+/* ---------- checklist ---------- */
+const ckKey = () => "hq-ck-" + todayISO();
+function ckState(){ return { model: "B", bias: false, pos: false, smt: "", ...ls.get(ckKey(), {}) }; }
+function ckSet(p){ ls.set(ckKey(), { ...ckState(), ...p }); paintCk(); renderKpi(); }
+function paintCk(){
+  const c = ckState(), A = c.model === "A";
+  [...$("modelSeg").children].forEach(b => b.setAttribute("aria-pressed", b.dataset.m === c.model));
+  document.querySelector('[data-c="bias"]').setAttribute("aria-pressed", c.bias);
+  document.querySelector('[data-c="pos"]').setAttribute("aria-pressed", c.pos);
+  [...$("smtSeg").children].forEach(b => b.setAttribute("aria-pressed", b.dataset.s === c.smt));
+  $("posLbl").textContent = `2 · Harga di sisi open ${A ? "H4" : "Daily"} yang benar`;
+  $("smtLbl").textContent = `3 · SMT di ${A ? "M15" : "H1"}`;
+  $("smtSub").textContent = `Konfirmasi untuk bias ${A ? "H4" : "Daily"}`;
+  const n = (c.bias?1:0) + (c.pos?1:0) + (c.smt==="ya"?1:0), ok = n === 3;
+  $("ckCount").textContent = `${n}/3`; $("ckCount").style.color = ok ? "var(--up)" : "var(--muted)";
+  $("ckRes").textContent = ok ? "Semua syarat terpenuhi · boleh entry" : "Belum lengkap · tunggu";
+  $("ckRes").style.cssText = ok ? "background:var(--tGreen);color:var(--up)" : "background:var(--side);color:var(--muted)";
+}
+$("modelSeg").onclick = e => { const b = e.target.closest("button"); if (b) ckSet({ model: b.dataset.m }); };
+document.querySelectorAll(".chk").forEach(b => b.onclick = () => ckSet({ [b.dataset.c]: !ckState()[b.dataset.c] }));
+$("smtSeg").onclick = e => { const b = e.target.closest("button"); if (b) ckSet({ smt: b.dataset.s }); };
+$("ckReset").onclick = () => { const m = ckState().model; ls.set(ckKey(), { model: m }); paintCk(); renderKpi(); };
+paintCk();
+
+/* ---------- berita Forex Factory ---------- */
+const FOLD = [["High","#e5534b","Merah · dampak tinggi"],["Medium","#f0883e","Oranye · dampak sedang"],["Low","#d4b32c","Kuning · dampak rendah"],["Holiday","#8b96a5","Abu-abu · non-ekonomi"]];
+let fOn = ls.get("hq-folders", ["High","Medium"]), news = null;
+const folderSvg = c => `<svg aria-hidden="true" width="16" height="14" viewBox="0 0 16 14"><path d="M1 3a1 1 0 0 1 1-1h4l1.5 1.5H14a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1z" fill="${c}"/></svg>`;
+$("folders").innerHTML = FOLD.map(([k, c, n]) => `<button type="button" data-f="${k}" aria-label="${n}" title="${n}">${folderSvg(c)}</button>`).join("");
+$("folders").onclick = e => { const b = e.target.closest("button"); if (!b) return; const k = b.dataset.f; fOn = fOn.includes(k) ? fOn.filter(x => x !== k) : [...fOn, k]; ls.set("hq-folders", fOn); paintNews(); };
+function paintNews(){
+  [...$("folders").children].forEach(b => b.setAttribute("aria-pressed", fOn.includes(b.dataset.f)));
+  if (news === "fail") return;
+  if (!news) return;
+  const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
+  const tfmt = new Intl.DateTimeFormat("en-GB", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hour12: false });
+  const today = fmt.format(new Date());
+  const list = news.filter(n => fmt.format(new Date(n.date)) === today && fOn.includes(n.impact)).sort((a, b) => new Date(a.date) - new Date(b.date));
+  const col = Object.fromEntries(FOLD.map(([k, c]) => [k, c]));
+  $("newsList").innerHTML = list.length ? list.map(n => `<div class="news"><span class="mono muted">${tfmt.format(new Date(n.date))}</span><b>${esc(n.country)}</b>${folderSvg(col[n.impact] || "#8b96a5")}<span title="${esc(n.title)}">${esc(n.title)}</span></div>`).join("") : `<div class="empty">Tidak ada berita dengan folder yang dipilih hari ini.</div>`;
+  $("newsSrc").textContent = "Forex Factory · jam New York";
+}
+async function loadNews(){
+  paintNews();
+  try {
+    const r = await fetch("https://nfs.faireconomy.media/ff_calendar_thisweek.json", { cache: "no-store" });
+    if (!r.ok) throw 0;
+    news = await r.json(); ls.set("hq-news", { at: Date.now(), news }); paintNews();
+  } catch {
+    const c = ls.get("hq-news", null);
+    if (c && Date.now() - c.at < 7 * 864e5) { news = c.news; paintNews(); $("newsSrc").textContent = "Forex Factory · data tersimpan"; return; }
+    news = "fail";
+    $("newsSrc").textContent = "Kalender TradingView (Forex Factory tidak bisa diakses)";
+    $("newsList").innerHTML = '<div id="tvcal" style="height:360px"></div>';
+    const s = document.createElement("script"); s.src = "https://s3.tradingview.com/external-embedding/embed-widget-events.js"; s.async = true;
+    s.textContent = JSON.stringify({ colorTheme: ["terang","kertas"].includes(document.documentElement.dataset.theme) ? "light" : "dark", isTransparent: true, width: "100%", height: "100%", locale: "id", importanceFilter: "0,1", countryFilter: "us,eu,gb,jp,au,nz,ca,ch" });
+    $("tvcal").appendChild(s);
+  }
+}
+
+/* ---------- musik ---------- */
+let playing = false;
+function musicSrc(){
+  let v = $("musicSel").value;
+  if (v === "custom") { const u = prompt("Tempel link YouTube (video atau live):", ls.get("hq-music-custom", "")) || ""; const m = u.match(/(?:v=|youtu\.be\/|live\/|embed\/)([\w-]{11})/); if (!m) return null; ls.set("hq-music-custom", u); v = m[1]; }
+  return `https://www.youtube-nocookie.com/embed/${v}?autoplay=1`;
+}
+$("musicBtn").onclick = () => {
+  if (playing) { $("musicFrame").src = "about:blank"; $("player").classList.remove("show"); playing = false; }
+  else { const s = musicSrc(); if (!s) return; $("musicFrame").src = s; $("player").classList.add("show"); playing = true; }
+  $("musicBtn").textContent = playing ? "Hentikan musik" : "Putar musik"; $("musicState").textContent = playing ? "menyala" : "mati";
+};
+$("musicSel").onchange = () => { if (playing) { const s = musicSrc(); if (s) $("musicFrame").src = s; } };
+
+/* ---------- mulai ---------- */
+loadChart(); refreshData(); loadNews();
+setInterval(refreshData, 120000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshData(); });
+</script>
+</body>
+</html>
