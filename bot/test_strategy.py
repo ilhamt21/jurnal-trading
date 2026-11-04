@@ -40,10 +40,10 @@ M30_MANUAL = {
 }
 
 
-def build(h1=H1, m30=M30_MANUAL):
+def build(h1=H1, m30=M30_MANUAL, day=DAY):
     rows = {}
     for hhmm, (o, h, l, c) in h1.items():
-        t = pd.Timestamp(f"{DAY} {hhmm}")
+        t = pd.Timestamp(f"{day} {hhmm}")
         mid = round((o + c) / 2, 3)
         if c < o:   # bearish: high dulu, low belakangan
             rows[t] = (o, h, min(o, mid), mid)
@@ -52,7 +52,7 @@ def build(h1=H1, m30=M30_MANUAL):
             rows[t] = (o, max(o, mid), l, mid)
             rows[t + pd.Timedelta(minutes=30)] = (mid, h, min(mid, c), c)
     for hhmm, v in m30.items():
-        rows[pd.Timestamp(f"{DAY} {hhmm}")] = v
+        rows[pd.Timestamp(f"{day} {hhmm}")] = v
     df = pd.DataFrame.from_dict(rows, orient="index", columns=["open", "high", "low", "close"])
     return df.sort_index()
 
@@ -114,6 +114,48 @@ class APlusExample(unittest.TestCase):
         r = run(build(m30=m30), P)[0]
         self.assertEqual(r.r_a, -1.0)
         self.assertEqual(r.r_b, -1.0)
+
+
+# Contoh 2 dari user: pair NZD (~2.39), 4 Nov 2026. Sweep tipis oleh H1 11:00,
+# target = swing low H1 08:00 (2.3912), BUKAN low candle H4 05:00 (2.3903).
+NZD_H1 = {
+    "01:00": (2.4020, 2.4025, 2.4000, 2.4003),
+    "02:00": (2.4003, 2.4010, 2.3980, 2.3986),
+    "03:00": (2.3986, 2.3990, 2.3960, 2.3967),
+    "04:00": (2.3967, 2.3980, 2.3929, 2.3934),
+    "05:00": (2.3934, 2.3943, 2.3903, 2.3936),
+    "06:00": (2.3937, 2.3974, 2.3936, 2.3957),
+    "07:00": (2.3957, 2.3971, 2.3946, 2.3962),
+    "08:00": (2.3962, 2.3963, 2.3912, 2.3913),
+    "09:00": (2.3913, 2.3955, 2.3913, 2.3941),
+    "13:00": (2.3937, 2.3960, 2.3935, 2.3958),
+}
+NZD_M30 = {
+    "10:00": (2.3941, 2.3969, 2.3932, 2.3961),   # high = C1 high (garis biru user)
+    "10:30": (2.3961, 2.3966, 2.3944, 2.3944),
+    "11:00": (2.3944, 2.3975, 2.3940, 2.3963),   # sweep high H4 05:00 (2.3974)
+    "11:30": (2.3963, 2.3964, 2.3929, 2.3942),   # close bearish = entry
+    "12:00": (2.3942, 2.3945, 2.3926, 2.3934),
+    "12:30": (2.3934, 2.3940, 2.3930, 2.3937),
+}
+
+
+class NzdExample(unittest.TestCase):
+    def test_target_is_nearest_h1_swing_not_h4_low(self):
+        r = run(build(NZD_H1, NZD_M30), Params())[0]
+        self.assertEqual(r.status, "TRADE", r.notes)
+        s = r.setup
+        self.assertEqual(s.side, "SELL")
+        self.assertEqual(s.entry_time.strftime("%H:%M"), "12:00")
+        self.assertAlmostEqual(s.entry, 2.3942)
+        self.assertAlmostEqual(s.ref_low, 2.3903)
+        self.assertAlmostEqual(s.target, 2.3912)
+        self.assertEqual(s.target_time.strftime("%H:%M"), "08:00")
+
+    def test_no_tp_closed_at_13(self):
+        r = run(build(NZD_H1, NZD_M30), Params())[0]
+        self.assertTrue(r.exit_a.startswith("tutup"))
+        self.assertGreater(r.r_a, 0)
 
 
 class Helpers(unittest.TestCase):
