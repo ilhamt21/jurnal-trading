@@ -245,7 +245,11 @@ if h1Done and n >= 4 and cHr % 4 == 0 and (not allH4 ? cHr == 8 : true)
         sessDone := false
 
 // ---------- Cari setup di candle H1 di dalam candle H4 sesi ----------
-if h1Done and not sessDone and not inTrade and array.get(a_t, n - 1) >= sStart and array.get(a_t, n - 1) < sEnd
+// (Pine v5 tidak berhenti di 'and' pertama, jadi array dibaca terpisah dulu)
+int lastT = 0
+if n > 0
+    lastT := array.get(a_t, n - 1)
+if h1Done and n > 0 and not sessDone and not inTrade and lastT >= sStart and lastT < sEnd
     int   trig = n - 1
     float bo = array.get(a_o, trig)
     float bh = array.get(a_h, trig)
