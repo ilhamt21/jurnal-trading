@@ -188,6 +188,26 @@ class NzdExample(unittest.TestCase):
         self.assertAlmostEqual(r.setup.target, 2.3903)
 
 
+class FvgAtSwingCandle(unittest.TestCase):
+    # Kasus GBPCAD 4 Nov (sesi 17:00): FVG dibentuk candle sebelum swing,
+    # candle swing (tengah), dan candle sesudahnya -> tetap membatalkan.
+    def test_fvg_with_swing_as_middle_candle_cancels(self):
+        h1 = dict(NZD_H1)
+        h1["07:00"] = (2.3957, 2.3965, 2.3946, 2.3962)
+        h1["08:00"] = (2.3962, 2.3970, 2.3912, 2.3968)   # swing low 2.3912
+        h1["09:00"] = (2.3968, 2.3972, 2.3966, 2.3970)   # low 09 > high 07 (gap 0,1 pip)
+        r = run(build(h1, NZD_M30), Params())[0]
+        self.assertEqual(r.status, "ADA FVG", r.notes)
+
+    def test_touching_candles_are_not_fvg(self):
+        h1 = dict(NZD_H1)
+        h1["07:00"] = (2.3957, 2.3966, 2.3946, 2.3962)   # high 07 == low 09 -> bukan gap
+        h1["08:00"] = (2.3962, 2.3970, 2.3912, 2.3968)
+        h1["09:00"] = (2.3968, 2.3972, 2.3966, 2.3970)
+        r = run(build(h1, NZD_M30), Params())[0]
+        self.assertEqual(r.status, "TRADE", r.notes)
+
+
 class M30CounterFilter(unittest.TestCase):
     # Kasus GBPUSD 3 Nov 2026: M30 terakhir sebelum entry SELL menyapu low
     # M30 sebelumnya lalu close bullish -> harga naik dulu, setup batal.

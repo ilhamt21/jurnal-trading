@@ -9,7 +9,8 @@ Aturan (versi SELL, BUY kebalikannya). Semua jam = waktu New York.
 3. Target     : swing low H1 terdekat di bawah harga entry (fractal).
                 Swing bersih diutamakan; equal lows dipakai kalau tidak ada.
 4. Filter FVG : di H1, dari swing low itu sampai candle sweep, TIDAK BOLEH
-                ada FVG bullish (high candle-1 < low candle-3).
+                ada FVG bullish (high candle-1 < low candle-3), sekecil apa
+                pun, termasuk FVG yang candle tengahnya adalah candle swing.
 5. Entry      : harga close candle H1 sweep.
 6. SL         : high candle M30 terakhir sebelum entry (+ buffer).
                 Batal kalau M30 terakhir itu menyapu low M30 sebelumnya dan
@@ -233,7 +234,9 @@ def find_setup(day: date, h1: pd.DataFrame, m30: pd.DataFrame, p: Params) -> Day
             res.notes.append(f"H1 {hhmm}: swing target tidak ditemukan")
             continue
 
-        fvg = _opposing_fvg(h1, tgt_i, trig_i, bias)
+        # Mulai satu candle sebelum swing: FVG yang candle tengahnya adalah
+        # candle swing itu sendiri juga dihitung (sekecil apa pun).
+        fvg = _opposing_fvg(h1, max(0, tgt_i - 1), trig_i, bias)
         if fvg is not None:
             res.status = "ADA FVG"
             kind = "bullish" if bias == "SELL" else "bearish"

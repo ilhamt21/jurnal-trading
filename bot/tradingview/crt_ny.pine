@@ -10,7 +10,8 @@
 // 3. Target    : swing low H1 terdekat (fractal 3 candle). Swing bersih
 //                diutamakan, equal lows dipakai kalau tidak ada.
 // 4. Filter    : tidak boleh ada FVG bullish di H1 dari swing target
-//                sampai candle sweep.
+//                sampai candle sweep, sekecil apa pun (termasuk FVG yang
+//                candle tengahnya adalah candle swing).
 // 5. Entry     : close candle H1 sweep. SL = high M30 terakhir + buffer.
 //                Batal kalau M30 terakhir menyapu low M30 sebelumnya dan
 //                close bullish (CRT M30 melawan arah).
@@ -274,7 +275,7 @@ if h1Done and sDay == dayKey and not dayDone and not inTrade and cHr >= sessH an
                     f_skip("M30 melawan")
                 else if tgtI == -1
                     f_skip("Tidak ada swing")
-                else if f_fvg(isSell, tgtI, trig)
+                else if f_fvg(isSell, math.max(0, tgtI - 1), trig)
                     nFvg += 1
                     f_skip("FVG berlawanan")
                 else if math.abs(tgtP - entry) / risk < minRR
