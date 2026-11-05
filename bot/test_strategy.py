@@ -115,6 +115,12 @@ class APlusExample(unittest.TestCase):
         self.assertEqual(r.exit_b, "tutup 17:00")
         self.assertAlmostEqual(r.r_b, (178.317 - 177.90) / 0.165, places=3)
 
+    def test_tp_rr_decimal(self):
+        # TP Order A di 0,5R -> 178.317 - 0,0825 = 178.2345
+        r = run(build(), Params(pip=0.01, sl_buffer_pips=0.0, tp_rr=0.5))[0]
+        self.assertAlmostEqual(r.setup.tp1, 178.2345, places=4)
+        self.assertEqual(r.r_a, 0.5)
+
     def test_sl_hit(self):
         m30 = dict(M30_MANUAL)
         m30["10:00"] = (178.317, 178.50, 178.20, 178.45)

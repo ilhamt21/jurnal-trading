@@ -20,7 +20,7 @@
 //                Batal kalau M30 terakhir menyapu low M30 sebelumnya dan
 //                close bullish (CRT M30 melawan arah).
 // 6. Filter    : target harus >= 1R.
-// 7. Kelola    : 2 order @ setengah risiko. A = TP 1:1. Setelah A kena,
+// 7. Kelola    : 2 order @ setengah risiko. A = TP 1:1 (bisa diubah, desimal). Setelah A kena,
 //                SL B pindah ke entry. Semua posisi ditutup saat candle H4
 //                sesi close (sesi 09:00 -> jam 13:00).
 strategy("CRT NY (jurnal-trading)", shorttitle="CRT NY", overlay=true, pyramiding=2,
@@ -31,7 +31,8 @@ strategy("CRT NY (jurnal-trading)", shorttitle="CRT NY", overlay=true, pyramidin
 modeSel   = input.string("09:00 saja (SOP)", "Sesi", options=["09:00 saja (SOP)", "Semua H4 (tiap 4 jam)"])
 pipSize   = input.float(0.0001, "Ukuran pip", tooltip="EURUSD 0.0001, pair JPY 0.01")
 slBufPips = input.float(1.0, "Buffer SL (pips)", minval=0)
-minRR     = input.float(1.0, "Target minimal (R)", minval=0)
+minRR     = input.float(1.0, "Target swing minimal (R)", minval=0, step=0.1, tooltip="Boleh desimal, misal 1.5")
+tpRR      = input.float(1.0, "TP Order A (R)", minval=0.1, step=0.1, tooltip="1 = TP 1:1. Boleh desimal, misal 1.5. Setelah TP ini kena, SL Order B pindah ke entry.")
 riskPct   = input.float(0.5, "Risiko total per setup (%)", minval=0.01)
 runnerX   = input.int(0, "VARIASI: tahan Order B +jam setelah sesi tutup (0 = mati)", minval=0, maxval=12)
 lookback  = input.int(48, "Cari swing H1 ke belakang (candle)", minval=5)
@@ -189,7 +190,7 @@ if inTrade and bar_index >= eBar
             aRes  := -1
             aOpen := false
         else if isS ? low <= tTP : high >= tTP
-            rA     := 1.0
+            rA     := tpRR
             aRes   := 1
             aOpen  := false
             aTpNow := true
@@ -308,7 +309,7 @@ if h1Done and n > 0 and not sessDone and not inTrade and lastT >= sStart and las
                     tSL      := sl
                     tSLB     := sl
                     tR       := risk
-                    tTP      := isSell ? entry - risk : entry + risk
+                    tTP      := isSell ? entry - risk * tpRR : entry + risk * tpRR
                     rA       := na
                     rB       := na
                     sessDone := true
@@ -318,7 +319,7 @@ if h1Done and n > 0 and not sessDone and not inTrade and lastT >= sStart and las
                     strategy.entry("B", dir, qty=qty)
                     strategy.exit("XA", "A", stop=sl, limit=tTP)
                     strategy.exit("XB", "B", stop=sl)
-                    string txt = (isSell ? "SELL" : "BUY") + " (sesi " + str.tostring(sHour, "00") + ":00)" + "\nEntry " + str.tostring(entry, format.mintick) + "\nSL " + str.tostring(sl, format.mintick) + " (" + str.tostring(risk / pipSize, "#.#") + " pips)" + "\nTP1 " + str.tostring(tTP, format.mintick) + "\nSwing " + str.tostring(tgtP, format.mintick) + " (" + str.tostring(math.abs(tgtP - entry) / risk, "#.##") + "R)"
+                    string txt = (isSell ? "SELL" : "BUY") + " (sesi " + str.tostring(sHour, "00") + ":00)" + "\nEntry " + str.tostring(entry, format.mintick) + "\nSL " + str.tostring(sl, format.mintick) + " (" + str.tostring(risk / pipSize, "#.#") + " pips)" + "\nTP A " + str.tostring(tTP, format.mintick) + " (" + str.tostring(tpRR, "#.##") + "R)" + "\nSwing " + str.tostring(tgtP, format.mintick) + " (" + str.tostring(math.abs(tgtP - entry) / risk, "#.##") + "R)"
                     label.new(bar_index, isSell ? high : low, txt, style=isSell ? label.style_label_down : label.style_label_up, color=isSell ? color.red : color.green, textcolor=color.white, size=size.small)
 
 // ---------- Gambar ----------
@@ -335,7 +336,7 @@ if barstate.islast
     table.cell(tb, 0, 0, allH4 ? "CRT semua H4" : "CRT NY 09:00", text_color=color.white)
     table.cell(tb, 0, 1, "Setup valid", text_color=color.white)
     table.cell(tb, 1, 1, str.tostring(nTr), text_color=color.white)
-    table.cell(tb, 0, 2, "Kena TP1 (1:1)", text_color=color.white)
+    table.cell(tb, 0, 2, "Kena TP A (" + str.tostring(tpRR, "#.##") + "R)", text_color=color.white)
     table.cell(tb, 1, 2, str.tostring(nTP), text_color=color.lime)
     table.cell(tb, 2, 2, nTr > 0 ? str.tostring(100.0 * nTP / nTr, "#") + "%" : "-", text_color=color.lime)
     table.cell(tb, 0, 3, "Kena SL", text_color=color.white)

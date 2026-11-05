@@ -24,7 +24,8 @@ def main(argv=None):
     ap.add_argument("--to", dest="end", type=date.fromisoformat)
     ap.add_argument("--pip", type=float, default=0.0001, help="ukuran pip (JPY: 0.01)")
     ap.add_argument("--sl-buffer", type=float, default=1.0, help="buffer SL dalam pips")
-    ap.add_argument("--min-rr", type=float, default=1.0)
+    ap.add_argument("--min-rr", type=float, default=1.0, help="target swing minimal (R), boleh desimal")
+    ap.add_argument("--tp-rr", type=float, default=1.0, help="TP Order A (R), boleh desimal, misal 1.5")
     ap.add_argument("--runner-close", type=int, default=None,
                     help="VARIASI: jam (NY) Order B ditutup, misal 17. Default ikut jam 13:00")
     ap.add_argument("--no-m30-filter", action="store_true",
@@ -34,7 +35,7 @@ def main(argv=None):
     ap.add_argument("--pip-value", type=float, default=10.0, help="nilai 1 pip per 1 lot (USD)")
     a = ap.parse_args(argv)
 
-    p = Params(pip=a.pip, sl_buffer_pips=a.sl_buffer, min_rr=a.min_rr,
+    p = Params(pip=a.pip, sl_buffer_pips=a.sl_buffer, min_rr=a.min_rr, tp_rr=a.tp_rr,
                runner_close_hour=a.runner_close,
                m30_counter_filter=not a.no_m30_filter)
     base = load_bars(a.csv, a.source_tz)

@@ -73,3 +73,5 @@ Di Settings, **Sesi** bisa dipilih: `09:00 saja (SOP)` (default) atau `Semua H4 
 
 Label abu-abu di chart menunjukkan setup yang dibatalkan beserta alasannya (FVG berlawanan, RR < 1, terlambat, dua sisi tersapu).
 | `--no-m30-filter` | Matikan filter CRT M30 yang melawan arah (untuk perbandingan) |
+| `--tp-rr 1.5` | TP Order A di 1,5R (boleh desimal). Default 1 = TP 1:1 |
+| `--min-rr 1.2` | Target swing minimal 1,2R (boleh desimal) |

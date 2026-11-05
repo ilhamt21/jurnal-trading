@@ -36,6 +36,7 @@ class Params:
     pip: float = 0.0001            # EURUSD: 0.0001, pair JPY: 0.01
     sl_buffer_pips: float = 1.0    # ditambahkan di atas/bawah candle M30 (pengganti spread)
     min_rr: float = 1.0            # target minimal (dalam R)
+    tp_rr: float = 1.0             # TP Order A (dalam R), boleh desimal
     ref_hour: int = 5              # candle H4 referensi
     window_hour: int = 9           # candle H4 tempat mencari sweep
     close_hour: int = 13           # semua posisi ditutup di jam ini
@@ -249,7 +250,7 @@ def find_setup(day: date, h1: pd.DataFrame, m30: pd.DataFrame, p: Params) -> Day
             res.notes.append(f"H1 {hhmm}: target {target:.5f} hanya {rr:.2f}R (SL {risk / p.pip:.1f} pips)")
             continue
 
-        tp1 = entry - risk if bias == "SELL" else entry + risk
+        tp1 = entry - risk * p.tp_rr if bias == "SELL" else entry + risk * p.tp_rr
         res.status = "TRADE"
         res.setup = Setup(
             day=day, side=bias, trigger_time=t.to_pydatetime(), entry_time=entry_time.to_pydatetime(),
@@ -294,7 +295,7 @@ def simulate(res: DayResult, base: pd.DataFrame, p: Params) -> DayResult:
             if hit(s.sl):
                 res.r_a, res.exit_a, a_open = -1.0, f"SL {t:%H:%M}", False
             elif reach(s.tp1):
-                res.r_a, res.exit_a, a_open = 1.0, f"TP1 {t:%H:%M}", False
+                res.r_a, res.exit_a, a_open = p.tp_rr, f"TP1 {t:%H:%M}", False
                 a_tp_now = True
         if b_open and hit(sl_b):
             res.r_b = r_of(sl_b)
