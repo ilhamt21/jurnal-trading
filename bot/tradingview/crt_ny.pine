@@ -1,5 +1,5 @@
 //@version=5
-// CRT sesi New York 09:00 - aturan sama dengan bot/strategy.py (jurnal-trading)
+// CRT sesi New York (default 09:00) - aturan sama dengan bot/strategy.py (jurnal-trading)
 // Pasang di chart M30. Semua jam = waktu New York (DST otomatis).
 //
 // SELL (BUY kebalikannya):
@@ -18,7 +18,7 @@
 // 6. Filter    : target harus >= 1R.
 // 7. Kelola    : 2 order @ setengah risiko. A = TP 1:1. Setelah A kena,
 //                SL B pindah ke entry. Semua posisi ditutup jam 13:00.
-strategy("CRT NY 09:00 (jurnal-trading)", shorttitle="CRT 9AM", overlay=true, pyramiding=2,
+strategy("CRT NY (jurnal-trading)", shorttitle="CRT NY", overlay=true, pyramiding=2,
      initial_capital=10000, default_qty_type=strategy.fixed, default_qty_value=1,
      process_orders_on_close=false, max_labels_count=500)
 
@@ -33,8 +33,8 @@ m30Filter = input.bool(true, "Filter CRT M30 melawan arah")
 showSkip  = input.bool(true, "Tampilkan label alasan setup batal")
 
 TZ      = "America/New_York"
-sessH   = 9          // HANYA sesi H4 09:00 New York (referensi H4 05:00, tutup 13:00)
-refH    = sessH - 4
+sessH   = input.int(9, "Sesi H4 (jam NY) - 9 = SOP utama, lainnya untuk latihan", options=[1, 5, 9, 13, 17])
+refH    = (sessH + 20) % 24   // candle H4 sebelumnya (sesi 1 -> referensi 21:00 hari sebelumnya)
 closeH  = sessH + 4
 bCloseH = runnerH > closeH ? runnerH : closeH
 
@@ -227,7 +227,8 @@ if inTrade and bar_index >= eBar
 
 // ---------- Candle referensi H4 (4 candle H1 sebelum sesi) ----------
 if h1Done and cHr == sessH - 1 and n >= 4
-    if array.get(a_hr, n - 4) == refH and array.get(a_dk, n - 4) == dayKey
+    bool seq = array.get(a_hr, n - 4) == refH and array.get(a_hr, n - 3) == (refH + 1) % 24 and array.get(a_hr, n - 2) == (refH + 2) % 24
+    if seq
         refHi   := math.max(math.max(array.get(a_h, n - 4), array.get(a_h, n - 3)), math.max(array.get(a_h, n - 2), array.get(a_h, n - 1)))
         refLo   := math.min(math.min(array.get(a_l, n - 4), array.get(a_l, n - 3)), math.min(array.get(a_l, n - 2), array.get(a_l, n - 1)))
         sDay    := dayKey
