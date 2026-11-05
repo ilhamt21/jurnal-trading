@@ -37,6 +37,8 @@ class Params:
     sl_buffer_pips: float = 1.0    # ditambahkan di atas/bawah candle M30 (pengganti spread)
     min_rr: float = 1.0            # target minimal (dalam R)
     tp_rr: float = 1.0             # TP Order A (dalam R), boleh desimal
+    min_sl_pips: float = 3.0       # SL lebih kecil dari ini -> setup batal
+    spread_pips: float = 0.0       # biaya spread (data = harga bid)
     ref_hour: int = 5              # candle H4 referensi
     window_hour: int = 9           # candle H4 tempat mencari sweep
     close_hour: int = 13           # semua posisi ditutup di jam ini
@@ -208,9 +210,16 @@ def find_setup(day: date, h1: pd.DataFrame, m30: pd.DataFrame, p: Params) -> Day
             continue
         buf = p.sl_buffer_pips * p.pip
         sl = float(last_m30["high"].iloc[0] + buf) if bias == "SELL" else float(last_m30["low"].iloc[0] - buf)
+        spr = p.spread_pips * p.pip
+        if bias == "BUY":
+            entry += spr          # BUY masuk di harga ask
         risk = abs(sl - entry)
-        if risk <= 0:
+        if risk <= 0 or (bias == "BUY" and sl >= entry):
             res.status = "SL TIDAK VALID"
+            continue
+        if risk / p.pip < p.min_sl_pips:
+            res.status = "SL TERLALU KECIL"
+            res.notes.append(f"H1 {hhmm}: SL hanya {risk / p.pip:.1f} pips (< {p.min_sl_pips:g})")
             continue
 
         if p.m30_counter_filter:
@@ -275,8 +284,15 @@ def simulate(res: DayResult, base: pd.DataFrame, p: Params) -> DayResult:
     sell = s.side == "SELL"
     R = s.risk
 
+    spr = p.spread_pips * p.pip
+
     def r_of(price):
-        return ((s.entry - price) if sell else (price - s.entry)) / R
+        # SELL ditutup dengan membeli di ask (= bid + spread)
+        return ((s.entry - (price + spr)) if sell else (price - s.entry)) / R
+
+    def r_exit(level):
+        # keluar di level SL/TP/BE yang sudah ditentukan
+        return ((s.entry - level) if sell else (level - s.entry)) / R
 
     a_open = b_open = True
     sl_b = s.sl
@@ -285,8 +301,9 @@ def simulate(res: DayResult, base: pd.DataFrame, p: Params) -> DayResult:
         if a_open and t >= close_t:
             # Order A tetap ditutup paksa di jam tutup utama.
             res.r_a, res.exit_a, a_open = r_of(prev_close), f"tutup {p.close_hour}:00", False
-        adverse = bar["high"] if sell else bar["low"]
-        favor = bar["low"] if sell else bar["high"]
+        # SELL: SL/TP terpicu oleh harga ask (bid + spread)
+        adverse = bar["high"] + spr if sell else bar["low"]
+        favor = bar["low"] + spr if sell else bar["high"]
         hit = (lambda lvl: adverse >= lvl) if sell else (lambda lvl: adverse <= lvl)
         reach = (lambda lvl: favor <= lvl) if sell else (lambda lvl: favor >= lvl)
 
@@ -298,7 +315,7 @@ def simulate(res: DayResult, base: pd.DataFrame, p: Params) -> DayResult:
                 res.r_a, res.exit_a, a_open = p.tp_rr, f"TP1 {t:%H:%M}", False
                 a_tp_now = True
         if b_open and hit(sl_b):
-            res.r_b = r_of(sl_b)
+            res.r_b = r_exit(sl_b)
             res.exit_b = ("BE " if sl_b == s.entry else "SL ") + f"{t:%H:%M}"
             b_open = False
         if a_tp_now:

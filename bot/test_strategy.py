@@ -214,6 +214,20 @@ class FvgAtSwingCandle(unittest.TestCase):
         self.assertEqual(r.status, "TRADE", r.notes)
 
 
+class MinSlAndSpread(unittest.TestCase):
+    def test_sl_below_minimum_cancels(self):
+        # SL contoh A+ = 16,5 pips -> batal kalau minimal 20 pips
+        r = run(build(), Params(pip=0.01, sl_buffer_pips=0.0, min_sl_pips=20))[0]
+        self.assertEqual(r.status, "SL TERLALU KECIL", r.notes)
+
+    def test_spread_makes_sell_tp_harder_and_costs_on_close(self):
+        # Spread 1 pip: TP1 178.152 baru kena kalau bid <= 178.142 (tetap kena di 178.10).
+        # Order B ditutup 13:00 dengan beli di ask = 177.84 + 0.01.
+        r = run(build(), Params(pip=0.01, sl_buffer_pips=0.0, spread_pips=1.0))[0]
+        self.assertEqual(r.r_a, 1.0)
+        self.assertAlmostEqual(r.r_b, (178.317 - 177.85) / 0.165, places=3)
+
+
 class M30CounterFilter(unittest.TestCase):
     # Kasus GBPUSD 3 Nov 2026: M30 terakhir sebelum entry SELL menyapu low
     # M30 sebelumnya lalu close bullish -> harga naik dulu, setup batal.

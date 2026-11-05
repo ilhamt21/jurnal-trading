@@ -75,3 +75,5 @@ Label abu-abu di chart menunjukkan setup yang dibatalkan beserta alasannya (FVG 
 | `--no-m30-filter` | Matikan filter CRT M30 yang melawan arah (untuk perbandingan) |
 | `--tp-rr 1.5` | TP Order A di 1,5R (boleh desimal). Default 1 = TP 1:1 |
 | `--min-rr 1.2` | Target swing minimal 1,2R (boleh desimal) |
+| `--min-sl 3` | SL minimal dalam pips (default 3); lebih kecil -> setup batal |
+| `--spread 1` | Spread dalam pips (default 1) dihitung sebagai biaya |
