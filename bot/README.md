@@ -77,3 +77,13 @@ Label abu-abu di chart menunjukkan setup yang dibatalkan beserta alasannya (FVG 
 | `--min-rr 1.2` | Target swing minimal 1,2R (boleh desimal) |
 | `--min-sl 3` | SL minimal dalam pips (default 3); lebih kecil -> setup batal |
 | `--spread 1` | Spread dalam pips (default 1) dihitung sebagai biaya |
+
+## Indikator sinyal H1 + Telegram
+
+File: `bot/tradingview/crt_signal_h1.pine`. Memberi sinyal **BUY/SELL sampai level H1** (sweep H4, close H1 kembali ke range, filter FVG, target swing H1). Entry dan SL di M30 dieksekusi sendiri.
+
+1. **Buat bot Telegram:** buka Telegram, chat **@BotFather**, kirim `/newbot`, ikuti petunjuk, lalu simpan **token**-nya (rahasia, jangan dibagikan).
+2. **Cari Chat ID:** kirim pesan apa saja ke bot Anda, lalu buka di browser `https://api.telegram.org/bot<TOKEN>/getUpdates`. Angka di `"chat":{"id": ... }` adalah Chat ID.
+3. **Pasang indikator** di chart M30 atau H1, buka Settings, isi **Telegram Chat ID**.
+4. **Buat alert** (ikon jam): Condition = **CRT H1 Sinyal → Any alert() function call**. Di tab Notifications centang **Webhook URL** dan isi `https://api.telegram.org/bot<TOKEN>/sendMessage`. Expiration: open-ended.
+5. Ulangi langkah 3–4 untuk setiap pair yang ingin dipantau (satu alert per pair).
