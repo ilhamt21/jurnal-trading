@@ -58,3 +58,15 @@ Tesnya memakai setup A+ 4 Nov 2026 (entry 178.317, SL 178.482, TP1 178.152).
 | `--runner-close 17` | Order A tetap ditutup jam 13:00, **Order B ditahan sampai jam 17:00** (atau jam lain) |
 
 Contoh perbandingan: jalankan sekali tanpa opsi, sekali dengan `--runner-close 17`, lalu bandingkan hasil totalnya.
+
+## Backtest di TradingView (Pine Script)
+
+File: `bot/tradingview/crt_ny.pine`, dengan aturan yang sama dengan bot Python.
+
+1. Buka TradingView di **browser/desktop** (bukan aplikasi HP) → chart pair yang diuji → timeframe **M30**.
+2. Buka **Pine Editor** di bawah → hapus isinya → tempel seluruh isi `crt_ny.pine` → **Save** → **Add to chart**.
+3. Klik ikon gear (Settings) indikator → isi **Ukuran pip** (pair JPY: `0.01`).
+4. Buka tab **Strategy Tester** → aktifkan **Deep Backtesting** (Premium), pilih rentang 5 tahun → **Generate report**.
+5. Hasil utama dibaca dari **tabel di pojok kanan atas chart** (dalam R, per tahun). Angka dolar di Strategy Tester hanya akurat untuk pair dengan quote USD (EURUSD, GBPUSD, AUDUSD, …).
+
+Label abu-abu di chart menunjukkan setup yang dibatalkan beserta alasannya (FVG berlawanan, RR < 1, terlambat, dua sisi tersapu).
