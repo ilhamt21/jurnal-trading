@@ -1,5 +1,5 @@
 //@version=5
-// CRT sesi New York - aturan sama dengan bot/strategy.py (jurnal-trading)
+// CRT sesi New York 09:00 - aturan sama dengan bot/strategy.py (jurnal-trading)
 // Pasang di chart M30. Semua jam = waktu New York (DST otomatis).
 //
 // SELL (BUY kebalikannya):
@@ -18,7 +18,7 @@
 // 6. Filter    : target harus >= 1R.
 // 7. Kelola    : 2 order @ setengah risiko. A = TP 1:1. Setelah A kena,
 //                SL B pindah ke entry. Semua posisi ditutup jam 13:00.
-strategy("CRT NY Session (jurnal-trading)", shorttitle="CRT NY", overlay=true, pyramiding=2,
+strategy("CRT NY 09:00 (jurnal-trading)", shorttitle="CRT 9AM", overlay=true, pyramiding=2,
      initial_capital=10000, default_qty_type=strategy.fixed, default_qty_value=1,
      process_orders_on_close=false, max_labels_count=500)
 
@@ -27,13 +27,13 @@ pipSize   = input.float(0.0001, "Ukuran pip", tooltip="EURUSD 0.0001, pair JPY 0
 slBufPips = input.float(1.0, "Buffer SL (pips)", minval=0)
 minRR     = input.float(1.0, "Target minimal (R)", minval=0)
 riskPct   = input.float(0.5, "Risiko total per setup (%)", minval=0.01)
-sessH     = input.int(9, "Candle H4 sesi (jam NY)", options=[5, 9, 13, 17])
 runnerH   = input.int(0, "VARIASI: tahan Order B sampai jam (0 = mati)", minval=0, maxval=23)
 lookback  = input.int(48, "Cari swing H1 ke belakang (candle)", minval=5)
 m30Filter = input.bool(true, "Filter CRT M30 melawan arah")
 showSkip  = input.bool(true, "Tampilkan label alasan setup batal")
 
 TZ      = "America/New_York"
+sessH   = 9          // HANYA sesi H4 09:00 New York (referensi H4 05:00, tutup 13:00)
 refH    = sessH - 4
 closeH  = sessH + 4
 bCloseH = runnerH > closeH ? runnerH : closeH
