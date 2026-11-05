@@ -69,5 +69,7 @@ File: `bot/tradingview/crt_ny.pine`, dengan aturan yang sama dengan bot Python.
 4. Buka tab **Strategy Tester** → aktifkan **Deep Backtesting** (Premium), pilih rentang 5 tahun → **Generate report**.
 5. Hasil utama dibaca dari **tabel di pojok kanan atas chart** (dalam R, per tahun). Angka dolar di Strategy Tester hanya akurat untuk pair dengan quote USD (EURUSD, GBPUSD, AUDUSD, …).
 
+Di Settings, **Sesi** bisa dipilih: `09:00 saja (SOP)` (default) atau `Semua H4 (tiap 4 jam)`, yang memakai setiap candle H4 (01, 05, 09, 13, 17, 21 NY) sebagai referensi untuk candle H4 berikutnya dan menutup posisi saat candle H4 sesi itu close.
+
 Label abu-abu di chart menunjukkan setup yang dibatalkan beserta alasannya (FVG berlawanan, RR < 1, terlambat, dua sisi tersapu).
 | `--no-m30-filter` | Matikan filter CRT M30 yang melawan arah (untuk perbandingan) |

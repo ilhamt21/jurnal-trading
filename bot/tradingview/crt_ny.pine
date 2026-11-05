@@ -1,11 +1,15 @@
 //@version=5
-// CRT sesi New York (default 09:00) - aturan sama dengan bot/strategy.py (jurnal-trading)
+// CRT berbasis candle H4 New York - aturan sama dengan bot/strategy.py (jurnal-trading)
 // Pasang di chart M30. Semua jam = waktu New York (DST otomatis).
+// Candle H4 NY: 01, 05, 09, 13, 17, 21.
+//
+// Mode "09:00 saja" = SOP utama (referensi H4 05:00, sesi H4 09:00, tutup 13:00).
+// Mode "Semua H4"   = setiap candle H4 jadi referensi untuk candle H4 berikutnya.
 //
 // SELL (BUY kebalikannya):
-// 1. Referensi : high/low candle H4 sebelum sesi (default H4 05:00)
-// 2. Sweep     : candle H1 di jendela H4 sesi (09:00-12:00) menembus HIGH
-//                referensi lalu close BEARISH kembali di bawah high.
+// 1. Referensi : high/low candle H4 sebelumnya.
+// 2. Sweep     : candle H1 di dalam candle H4 sesi menembus HIGH referensi
+//                lalu close BEARISH kembali di bawah high.
 //                Sisi yang tersapu pertama menentukan bias.
 // 3. Target    : swing low H1 terdekat (fractal 3 candle). Swing bersih
 //                diutamakan, equal lows dipakai kalau tidak ada.
@@ -17,34 +21,34 @@
 //                close bullish (CRT M30 melawan arah).
 // 6. Filter    : target harus >= 1R.
 // 7. Kelola    : 2 order @ setengah risiko. A = TP 1:1. Setelah A kena,
-//                SL B pindah ke entry. Semua posisi ditutup jam 13:00.
+//                SL B pindah ke entry. Semua posisi ditutup saat candle H4
+//                sesi close (sesi 09:00 -> jam 13:00).
 strategy("CRT NY (jurnal-trading)", shorttitle="CRT NY", overlay=true, pyramiding=2,
      initial_capital=10000, default_qty_type=strategy.fixed, default_qty_value=1,
      process_orders_on_close=false, max_labels_count=500)
 
 // ---------- Pengaturan ----------
+modeSel   = input.string("09:00 saja (SOP)", "Sesi", options=["09:00 saja (SOP)", "Semua H4 (tiap 4 jam)"])
 pipSize   = input.float(0.0001, "Ukuran pip", tooltip="EURUSD 0.0001, pair JPY 0.01")
 slBufPips = input.float(1.0, "Buffer SL (pips)", minval=0)
 minRR     = input.float(1.0, "Target minimal (R)", minval=0)
 riskPct   = input.float(0.5, "Risiko total per setup (%)", minval=0.01)
-runnerH   = input.int(0, "VARIASI: tahan Order B sampai jam (0 = mati)", minval=0, maxval=23)
+runnerX   = input.int(0, "VARIASI: tahan Order B +jam setelah sesi tutup (0 = mati)", minval=0, maxval=12)
 lookback  = input.int(48, "Cari swing H1 ke belakang (candle)", minval=5)
 m30Filter = input.bool(true, "Filter CRT M30 melawan arah")
+showRef   = input.bool(true, "Gambar high/low referensi")
 showSkip  = input.bool(true, "Tampilkan label alasan setup batal")
 
-TZ      = "America/New_York"
-sessH   = input.int(9, "Sesi H4 (jam NY) - 9 = SOP utama, lainnya untuk latihan", options=[1, 5, 9, 13, 17])
-refH    = (sessH + 20) % 24   // candle H4 sebelumnya (sesi 1 -> referensi 21:00 hari sebelumnya)
-closeH  = sessH + 4
-bCloseH = runnerH > closeH ? runnerH : closeH
+TZ     = "America/New_York"
+HOUR   = 3600000
+allH4  = modeSel == "Semua H4 (tiap 4 jam)"
 
 if timeframe.period != "30"
     runtime.error("Pakai chart M30 (30 menit).")
 
 nyH    = hour(time, TZ)
 nyM    = minute(time, TZ)
-dayKey = year(time, TZ) * 10000 + month(time, TZ) * 100 + dayofmonth(time, TZ)
-endMin = nyH * 60 + nyM + 30   // menit (jam NY) saat candle M30 ini close
+barEnd = time + 30 * 60000
 
 // ---------- Susun candle H1 dari M30 ----------
 var a_o  = array.new_float()
@@ -52,14 +56,14 @@ var a_h  = array.new_float()
 var a_l  = array.new_float()
 var a_c  = array.new_float()
 var a_hr = array.new_int()
-var a_dk = array.new_int()
+var a_t  = array.new_int()     // jam buka candle H1 (ms)
 
 var float cO  = na
 var float cH  = na
 var float cL  = na
 var float cC  = na
 var int   cHr = -1
-var int   cDk = -1
+var int   cT  = 0
 
 h1Done = false
 if nyM == 0
@@ -68,9 +72,9 @@ if nyM == 0
     cL  := low
     cC  := close
     cHr := nyH
-    cDk := dayKey
+    cT  := time
 else if nyM == 30
-    if cHr == nyH and cDk == dayKey
+    if cHr == nyH and time - cT == 30 * 60000
         cH := math.max(cH, high)
         cL := math.min(cL, low)
         cC := close
@@ -80,13 +84,13 @@ else if nyM == 30
         cL  := low
         cC  := close
         cHr := nyH
-        cDk := dayKey
+        cT  := time - 30 * 60000
     array.push(a_o, cO)
     array.push(a_h, cH)
     array.push(a_l, cL)
     array.push(a_c, cC)
     array.push(a_hr, cHr)
-    array.push(a_dk, cDk)
+    array.push(a_t, cT)
     h1Done := true
     if array.size(a_o) > 400
         array.shift(a_o)
@@ -94,22 +98,25 @@ else if nyM == 30
         array.shift(a_l)
         array.shift(a_c)
         array.shift(a_hr)
-        array.shift(a_dk)
+        array.shift(a_t)
 
 n = array.size(a_o)
 
-// ---------- Status hari & trade ----------
-var float  refHi   = na
-var float  refLo   = na
-var int    sDay    = -1
-var string bias    = ""
-var bool   dayDone = true
+// ---------- Status sesi & trade ----------
+var float  refHi    = na
+var float  refLo    = na
+var int    sStart   = 0      // jam buka candle H4 sesi (ms)
+var int    sEnd     = 0      // jam tutup candle H4 sesi (ms)
+var int    sHour    = 0
+var string bias     = ""
+var bool   sessDone = true
 
 var bool   inTrade = false
 var bool   aOpen   = false
 var bool   bOpen   = false
 var int    eBar    = 0
-var int    tDay    = -1
+var int    tCloseA = 0
+var int    tCloseB = 0
 var int    tYear   = 0
 var string tSide   = ""
 var float  tE      = na
@@ -193,13 +200,12 @@ if inTrade and bar_index >= eBar
         tSLB := tE
         strategy.exit("XB", "B", stop=tE)
     float rNow = (isS ? tE - close : close - tE) / tR
-    bool newDay = dayKey != tDay
-    if aOpen and (endMin >= closeH * 60 or newDay)
+    if aOpen and barEnd >= tCloseA
         rA    := rNow
         aRes  := 0
         aOpen := false
         strategy.close("A", comment="tutup jam")
-    if bOpen and (endMin >= bCloseH * 60 or newDay)
+    if bOpen and barEnd >= tCloseB
         rB    := rNow
         bOpen := false
         strategy.close("B", comment="tutup jam")
@@ -225,18 +231,21 @@ if inTrade and bar_index >= eBar
             array.set(yrR, yi, array.get(yrR, yi) + tot)
             array.set(yrN, yi, array.get(yrN, yi) + 1)
 
-// ---------- Candle referensi H4 (4 candle H1 sebelum sesi) ----------
-if h1Done and cHr == sessH - 1 and n >= 4
-    bool seq = array.get(a_hr, n - 4) == refH and array.get(a_hr, n - 3) == (refH + 1) % 24 and array.get(a_hr, n - 2) == (refH + 2) % 24
-    if seq
-        refHi   := math.max(math.max(array.get(a_h, n - 4), array.get(a_h, n - 3)), math.max(array.get(a_h, n - 2), array.get(a_h, n - 1)))
-        refLo   := math.min(math.min(array.get(a_l, n - 4), array.get(a_l, n - 3)), math.min(array.get(a_l, n - 2), array.get(a_l, n - 1)))
-        sDay    := dayKey
-        bias    := ""
-        dayDone := false
+// ---------- Candle referensi H4 selesai -> buka sesi berikutnya ----------
+// Candle H4 NY berakhir setelah candle H1 jam 00, 04, 08, 12, 16, 20.
+if h1Done and n >= 4 and cHr % 4 == 0 and (not allH4 ? cHr == 8 : true)
+    // 4 candle H1 terakhir harus berurutan (tanpa celah data)
+    if array.get(a_t, n - 1) - array.get(a_t, n - 4) == 3 * HOUR
+        refHi    := math.max(math.max(array.get(a_h, n - 4), array.get(a_h, n - 3)), math.max(array.get(a_h, n - 2), array.get(a_h, n - 1)))
+        refLo    := math.min(math.min(array.get(a_l, n - 4), array.get(a_l, n - 3)), math.min(array.get(a_l, n - 2), array.get(a_l, n - 1)))
+        sStart   := array.get(a_t, n - 1) + HOUR
+        sEnd     := sStart + 4 * HOUR
+        sHour    := (cHr + 1) % 24
+        bias     := ""
+        sessDone := false
 
-// ---------- Cari setup di candle H1 jendela sesi ----------
-if h1Done and sDay == dayKey and not dayDone and not inTrade and cHr >= sessH and cHr < sessH + 4
+// ---------- Cari setup di candle H1 di dalam candle H4 sesi ----------
+if h1Done and not sessDone and not inTrade and array.get(a_t, n - 1) >= sStart and array.get(a_t, n - 1) < sEnd
     int   trig = n - 1
     float bo = array.get(a_o, trig)
     float bh = array.get(a_h, trig)
@@ -246,7 +255,7 @@ if h1Done and sDay == dayKey and not dayDone and not inTrade and cHr >= sessH an
     bool loSw = bl < refLo
     if bias == ""
         if hiSw and loSw
-            dayDone := true
+            sessDone := true
             f_skip("Dua sisi tersapu")
         else if hiSw
             bias := "SELL"
@@ -254,10 +263,10 @@ if h1Done and sDay == dayKey and not dayDone and not inTrade and cHr >= sessH an
             bias := "BUY"
     bool isSell = bias == "SELL"
     bool swept  = isSell ? hiSw : loSw
-    if not dayDone and bias != "" and swept
+    if not sessDone and bias != "" and swept
         bool validClose = isSell ? (bc < bo and bc < refHi) : (bc > bo and bc > refLo)
         if validClose
-            if cHr + 1 >= closeH
+            if array.get(a_t, trig) + HOUR >= sEnd
                 f_skip("Terlambat")
             else
                 float entry = bc
@@ -283,34 +292,35 @@ if h1Done and sDay == dayKey and not dayDone and not inTrade and cHr >= sessH an
                     nRR += 1
                     f_skip("RR < " + str.tostring(minRR))
                 else
-                    inTrade := true
-                    aOpen   := true
-                    bOpen   := true
-                    eBar    := bar_index + 1
-                    tDay    := dayKey
-                    tYear   := year(time, TZ)
-                    tSide   := bias
-                    tE      := entry
-                    tSL     := sl
-                    tSLB    := sl
-                    tR      := risk
-                    tTP     := isSell ? entry - risk : entry + risk
-                    rA      := na
-                    rB      := na
-                    dayDone := true
+                    inTrade  := true
+                    aOpen    := true
+                    bOpen    := true
+                    eBar     := bar_index + 1
+                    tCloseA  := sEnd
+                    tCloseB  := sEnd + runnerX * HOUR
+                    tYear    := year(time, TZ)
+                    tSide    := bias
+                    tE       := entry
+                    tSL      := sl
+                    tSLB     := sl
+                    tR       := risk
+                    tTP      := isSell ? entry - risk : entry + risk
+                    rA       := na
+                    rB       := na
+                    sessDone := true
                     float qty = (strategy.initial_capital * riskPct / 200) / risk
                     dir = isSell ? strategy.short : strategy.long
                     strategy.entry("A", dir, qty=qty)
                     strategy.entry("B", dir, qty=qty)
                     strategy.exit("XA", "A", stop=sl, limit=tTP)
                     strategy.exit("XB", "B", stop=sl)
-                    string txt = (isSell ? "SELL" : "BUY") + "\nEntry " + str.tostring(entry, format.mintick) + "\nSL " + str.tostring(sl, format.mintick) + " (" + str.tostring(risk / pipSize, "#.#") + " pips)" + "\nTP1 " + str.tostring(tTP, format.mintick) + "\nSwing " + str.tostring(tgtP, format.mintick) + " (" + str.tostring(math.abs(tgtP - entry) / risk, "#.##") + "R)"
+                    string txt = (isSell ? "SELL" : "BUY") + " (sesi " + str.tostring(sHour, "00") + ":00)" + "\nEntry " + str.tostring(entry, format.mintick) + "\nSL " + str.tostring(sl, format.mintick) + " (" + str.tostring(risk / pipSize, "#.#") + " pips)" + "\nTP1 " + str.tostring(tTP, format.mintick) + "\nSwing " + str.tostring(tgtP, format.mintick) + " (" + str.tostring(math.abs(tgtP - entry) / risk, "#.##") + "R)"
                     label.new(bar_index, isSell ? high : low, txt, style=isSell ? label.style_label_down : label.style_label_up, color=isSell ? color.red : color.green, textcolor=color.white, size=size.small)
 
 // ---------- Gambar ----------
-inSess = sDay == dayKey and nyH >= sessH and nyH < closeH
-plot(inSess ? refHi : na, "High referensi", color=color.blue, style=plot.style_linebr)
-plot(inSess ? refLo : na, "Low referensi", color=color.blue, style=plot.style_linebr)
+inSess = time >= sStart and time < sEnd
+plot(showRef and inSess ? refHi : na, "High referensi", color=color.blue, style=plot.style_linebr)
+plot(showRef and inSess ? refLo : na, "Low referensi", color=color.blue, style=plot.style_linebr)
 plot(inTrade ? tSLB : na, "SL", color=color.red, style=plot.style_linebr)
 plot(inTrade and aOpen ? tTP : na, "TP1", color=color.green, style=plot.style_linebr)
 
@@ -318,7 +328,7 @@ plot(inTrade and aOpen ? tTP : na, "TP1", color=color.green, style=plot.style_li
 var table tb = table.new(position.top_right, 3, 30, bgcolor=color.new(color.black, 15), border_width=1)
 if barstate.islast
     table.clear(tb, 0, 0, 2, 29)
-    table.cell(tb, 0, 0, "CRT NY " + str.tostring(sessH) + ":00", text_color=color.white)
+    table.cell(tb, 0, 0, allH4 ? "CRT semua H4" : "CRT NY 09:00", text_color=color.white)
     table.cell(tb, 0, 1, "Setup valid", text_color=color.white)
     table.cell(tb, 1, 1, str.tostring(nTr), text_color=color.white)
     table.cell(tb, 0, 2, "Kena TP1 (1:1)", text_color=color.white)
@@ -327,7 +337,7 @@ if barstate.islast
     table.cell(tb, 0, 3, "Kena SL", text_color=color.white)
     table.cell(tb, 1, 3, str.tostring(nSL), text_color=color.red)
     table.cell(tb, 2, 3, nTr > 0 ? str.tostring(100.0 * nSL / nTr, "#") + "%" : "-", text_color=color.red)
-    table.cell(tb, 0, 4, "Tutup jam " + str.tostring(closeH), text_color=color.white)
+    table.cell(tb, 0, 4, "Tutup jam sesi", text_color=color.white)
     table.cell(tb, 1, 4, str.tostring(nTO), text_color=color.white)
     table.cell(tb, 0, 5, "Total R", text_color=color.white)
     table.cell(tb, 1, 5, str.tostring(totR, "#.##"), text_color=totR >= 0 ? color.lime : color.red)
