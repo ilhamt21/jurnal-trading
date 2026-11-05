@@ -36,6 +36,7 @@ class Params:
     ref_hour: int = 5              # candle H4 referensi
     window_hour: int = 9           # candle H4 tempat mencari sweep
     close_hour: int = 13           # semua posisi ditutup di jam ini
+    runner_close_hour: int | None = None  # VARIASI: Order B ditahan sampai jam ini
     swing_lookback: int = 48       # berapa candle H1 ke belakang mencari swing
     fractal_bars: int = 1          # jumlah candle di kiri/kanan untuk swing
 
@@ -245,7 +246,9 @@ def simulate(res: DayResult, base: pd.DataFrame, p: Params) -> DayResult:
     """
     s = res.setup
     close_t = datetime.combine(s.day, time(p.close_hour))
-    bars = base[(base.index >= s.entry_time) & (base.index < close_t)]
+    b_hour = max(p.runner_close_hour or p.close_hour, p.close_hour)
+    b_close_t = datetime.combine(s.day, time(b_hour))
+    bars = base[(base.index >= s.entry_time) & (base.index < b_close_t)]
     sell = s.side == "SELL"
     R = s.risk
 
@@ -254,7 +257,11 @@ def simulate(res: DayResult, base: pd.DataFrame, p: Params) -> DayResult:
 
     a_open = b_open = True
     sl_b = s.sl
+    prev_close = s.entry
     for t, bar in bars.iterrows():
+        if a_open and t >= close_t:
+            # Order A tetap ditutup paksa di jam tutup utama.
+            res.r_a, res.exit_a, a_open = r_of(prev_close), f"tutup {p.close_hour}:00", False
         adverse = bar["high"] if sell else bar["low"]
         favor = bar["low"] if sell else bar["high"]
         hit = (lambda lvl: adverse >= lvl) if sell else (lambda lvl: adverse <= lvl)
@@ -273,14 +280,14 @@ def simulate(res: DayResult, base: pd.DataFrame, p: Params) -> DayResult:
             b_open = False
         if a_tp_now:
             sl_b = s.entry  # breakeven berlaku mulai candle berikutnya
+        prev_close = float(bar["close"])
         if not a_open and not b_open:
             break
 
-    last_close = float(bars["close"].iloc[-1]) if len(bars) else s.entry
     if a_open:
-        res.r_a, res.exit_a = r_of(last_close), f"tutup {p.close_hour}:00"
+        res.r_a, res.exit_a = r_of(prev_close), f"tutup {p.close_hour}:00"
     if b_open:
-        res.r_b, res.exit_b = r_of(last_close), f"tutup {p.close_hour}:00"
+        res.r_b, res.exit_b = r_of(prev_close), f"tutup {b_hour}:00"
     return res
 
 

@@ -108,6 +108,13 @@ class APlusExample(unittest.TestCase):
         self.assertEqual(r.r_b, 0.0)
         self.assertTrue(r.exit_b.startswith("BE"))
 
+    def test_runner_variation_holds_order_b_longer(self):
+        # Variasi: Order B ditahan sampai 17:00 -> tutup di close candle terakhir (13:30)
+        r = run(build(), Params(pip=0.01, sl_buffer_pips=0.0, runner_close_hour=17))[0]
+        self.assertEqual(r.r_a, 1.0)
+        self.assertEqual(r.exit_b, "tutup 17:00")
+        self.assertAlmostEqual(r.r_b, (178.317 - 177.90) / 0.165, places=3)
+
     def test_sl_hit(self):
         m30 = dict(M30_MANUAL)
         m30["10:00"] = (178.317, 178.50, 178.20, 178.45)

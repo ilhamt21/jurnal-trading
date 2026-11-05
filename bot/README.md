@@ -50,3 +50,11 @@ python -m unittest bot.test_strategy -v
 ```
 
 Tesnya memakai setup A+ 4 Nov 2026 (entry 178.317, SL 178.482, TP1 178.152).
+
+## Variasi untuk diuji (bukan aturan utama)
+
+| Opsi | Arti |
+|---|---|
+| `--runner-close 17` | Order A tetap ditutup jam 13:00, **Order B ditahan sampai jam 17:00** (atau jam lain) |
+
+Contoh perbandingan: jalankan sekali tanpa opsi, sekali dengan `--runner-close 17`, lalu bandingkan hasil totalnya.
