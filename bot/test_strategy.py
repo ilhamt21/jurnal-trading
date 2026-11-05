@@ -157,6 +157,15 @@ class NzdExample(unittest.TestCase):
         self.assertTrue(r.exit_a.startswith("tutup"))
         self.assertGreater(r.r_a, 0)
 
+    def test_equal_lows_count_as_swing(self):
+        # Low H1 08:00 dan 09:00 sama persis -> tetap dihitung swing (bukan
+        # lompat ke low 05:00 yang lebih jauh).
+        h1 = dict(NZD_H1)
+        h1["09:00"] = (2.3913, 2.3955, 2.3912, 2.3941)
+        r = run(build(h1, NZD_M30), Params())[0]
+        self.assertEqual(r.status, "TRADE", r.notes)
+        self.assertAlmostEqual(r.setup.target, 2.3912)
+
 
 class Helpers(unittest.TestCase):
     def test_lot_size_rounds_down(self):

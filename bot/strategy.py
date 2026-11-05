@@ -6,7 +6,8 @@ Aturan (versi SELL, BUY kebalikannya). Semua jam = waktu New York.
 2. Sweep      : salah satu candle H1 di jendela H4 09:00 (09:00-12:00)
                 menembus HIGH referensi dan close BEARISH kembali di bawah
                 high itu. Sisi yang tersapu pertama kali menentukan bias.
-3. Target     : swing low H1 terdekat di bawah harga entry (fractal).
+3. Target     : swing low H1 terdekat di bawah harga entry (fractal;
+                equal lows dihitung swing).
 4. Filter FVG : di H1, dari swing low itu sampai candle sweep, TIDAK BOLEH
                 ada FVG bullish (high candle-1 < low candle-3).
 5. Entry      : harga close candle H1 sweep.
@@ -88,9 +89,11 @@ def _is_swing(h1: pd.DataFrame, i: int, n: int, low: bool) -> bool:
     v = col.iloc[i]
     left = col.iloc[i - n:i]
     right = col.iloc[i + 1:i + n + 1]
+    # Equal low/high dihitung swing: boleh sama dengan candle kiri,
+    # tapi harus lebih ekstrem dari candle kanan.
     if low:
-        return bool((v < left).all() and (v < right).all())
-    return bool((v > left).all() and (v > right).all())
+        return bool((v <= left).all() and (v < right).all())
+    return bool((v >= left).all() and (v > right).all())
 
 
 def _find_target(h1, trig_i, entry, side, p: Params):
