@@ -157,14 +157,28 @@ class NzdExample(unittest.TestCase):
         self.assertTrue(r.exit_a.startswith("tutup"))
         self.assertGreater(r.r_a, 0)
 
-    def test_equal_lows_count_as_swing(self):
-        # Low H1 08:00 dan 09:00 sama persis -> tetap dihitung swing (bukan
-        # lompat ke low 05:00 yang lebih jauh).
+    def test_equal_lows_used_when_no_clean_swing(self):
+        # Low H1 08:00 = 09:00 dan tidak ada swing bersih lain -> equal lows dipakai.
         h1 = dict(NZD_H1)
         h1["09:00"] = (2.3913, 2.3955, 2.3912, 2.3941)
+        h1["05:00"] = (2.3934, 2.3943, 2.3925, 2.3936)   # hapus swing bersih 05:00
+        h1["04:00"] = (2.3967, 2.3980, 2.3920, 2.3934)
+        h1["03:00"] = (2.3986, 2.3990, 2.3915, 2.3967)
+        h1["02:00"] = (2.4003, 2.4010, 2.3914, 2.3986)
+        h1["01:00"] = (2.4020, 2.4025, 2.3913, 2.4003)
         r = run(build(h1, NZD_M30), Params())[0]
         self.assertEqual(r.status, "TRADE", r.notes)
         self.assertAlmostEqual(r.setup.target, 2.3912)
+
+    def test_clean_swing_preferred_over_equal_lows(self):
+        # Equal lows 08:00/09:00 (2.3912) lebih dekat, tapi swing bersih
+        # 05:00 (2.3903) yang diutamakan.
+        h1 = dict(NZD_H1)
+        h1["09:00"] = (2.3913, 2.3955, 2.3912, 2.3941)
+        h1["07:00"] = (2.3957, 2.3971, 2.3940, 2.3962)   # tanpa FVG 05:00-07:00
+        r = run(build(h1, NZD_M30), Params())[0]
+        self.assertEqual(r.status, "TRADE", r.notes)
+        self.assertAlmostEqual(r.setup.target, 2.3903)
 
 
 class Helpers(unittest.TestCase):

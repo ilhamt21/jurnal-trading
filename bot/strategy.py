@@ -6,8 +6,8 @@ Aturan (versi SELL, BUY kebalikannya). Semua jam = waktu New York.
 2. Sweep      : salah satu candle H1 di jendela H4 09:00 (09:00-12:00)
                 menembus HIGH referensi dan close BEARISH kembali di bawah
                 high itu. Sisi yang tersapu pertama kali menentukan bias.
-3. Target     : swing low H1 terdekat di bawah harga entry (fractal;
-                equal lows dihitung swing).
+3. Target     : swing low H1 terdekat di bawah harga entry (fractal).
+                Swing bersih diutamakan; equal lows dipakai kalau tidak ada.
 4. Filter FVG : di H1, dari swing low itu sampai candle sweep, TIDAK BOLEH
                 ada FVG bullish (high candle-1 < low candle-3).
 5. Entry      : harga close candle H1 sweep.
@@ -82,29 +82,43 @@ class DayResult:
         return (self.r_a + self.r_b) / 2
 
 
-def _is_swing(h1: pd.DataFrame, i: int, n: int, low: bool) -> bool:
+def _is_swing(h1: pd.DataFrame, i: int, n: int, low: bool, allow_equal: bool = False) -> bool:
     if i - n < 0 or i + n >= len(h1):
         return False
     col = h1["low"] if low else h1["high"]
     v = col.iloc[i]
     left = col.iloc[i - n:i]
     right = col.iloc[i + 1:i + n + 1]
-    # Equal low/high dihitung swing: boleh sama dengan candle kiri,
-    # tapi harus lebih ekstrem dari candle kanan.
+    # allow_equal: equal low/high dihitung swing (boleh sama dengan candle
+    # kiri, tapi harus lebih ekstrem dari candle kanan).
     if low:
-        return bool((v <= left).all() and (v < right).all())
-    return bool((v >= left).all() and (v > right).all())
+        ok_left = (v <= left).all() if allow_equal else (v < left).all()
+        return bool(ok_left and (v < right).all())
+    ok_left = (v >= left).all() if allow_equal else (v > left).all()
+    return bool(ok_left and (v > right).all())
 
 
 def _find_target(h1, trig_i, entry, side, p: Params):
-    """Swing H1 terdekat (paling baru) di sisi target, sudah terkonfirmasi."""
+    """Swing H1 terdekat (paling baru) di sisi target, sudah terkonfirmasi.
+
+    Swing bersih diutamakan. Equal low/high baru dipakai kalau tidak ada
+    swing bersih di bawah/atas harga entry.
+    """
+    for allow_equal in (False, True):
+        found = _scan_target(h1, trig_i, entry, side, p, allow_equal)
+        if found[0] is not None:
+            return found
+    return None, None
+
+
+def _scan_target(h1, trig_i, entry, side, p: Params, allow_equal: bool):
     want_low = side == "SELL"
     start = max(0, trig_i - p.swing_lookback)
     for i in range(trig_i - p.fractal_bars, start - 1, -1):
         # konfirmasi fractal hanya boleh memakai candle sampai candle sweep
         if i + p.fractal_bars > trig_i:
             continue
-        if _is_swing(h1, i, p.fractal_bars, low=want_low):
+        if _is_swing(h1, i, p.fractal_bars, low=want_low, allow_equal=allow_equal):
             price = h1["low"].iloc[i] if want_low else h1["high"].iloc[i]
             if (want_low and price < entry) or (not want_low and price > entry):
                 return i, price

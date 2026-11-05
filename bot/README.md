@@ -9,7 +9,7 @@ Tahap 1: **backtest**. Bot live (notifikasi Telegram dan eksekusi) dibangun sete
 | 1 | Referensi: high/low candle **H4 05:00** | high 05:00–09:00 |
 | 2 | Salah satu candle **H1 09:00–12:00** menyapu high/low referensi. Sisi yang tersapu pertama menentukan bias | sapu HIGH → SELL |
 | 3 | Candle H1 itu close searah bias **dan** kembali ke dalam range | close bearish, di bawah high |
-| 4 | Target = **swing H1 terdekat** (fractal 3 candle, equal lows/highs dihitung) | swing low terdekat |
+| 4 | Target = **swing H1 terdekat** (fractal 3 candle; swing bersih diutamakan, equal lows/highs dipakai kalau tidak ada) | swing low terdekat |
 | 5 | Dari swing target sampai candle sweep **tidak ada FVG berlawanan** di H1 | tidak ada FVG bullish |
 | 6 | Entry = close candle H1 sweep | |
 | 7 | SL = high/low **candle M30 terakhir** + buffer (default 1 pip) | high M30 + 1 pip |
