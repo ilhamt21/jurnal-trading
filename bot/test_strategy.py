@@ -188,6 +188,22 @@ class NzdExample(unittest.TestCase):
         self.assertAlmostEqual(r.setup.target, 2.3903)
 
 
+class M30CounterFilter(unittest.TestCase):
+    # Kasus GBPUSD 3 Nov 2026: M30 terakhir sebelum entry SELL menyapu low
+    # M30 sebelumnya lalu close bullish -> harga naik dulu, setup batal.
+    def test_counter_m30_crt_cancels_sell(self):
+        m30 = dict(NZD_M30)
+        m30["11:30"] = (2.3930, 2.3950, 2.3935, 2.3942)  # low < low 11:00, close bullish
+        r = run(build(NZD_H1, m30), Params())[0]
+        self.assertEqual(r.status, "M30 MELAWAN", r.notes)
+
+    def test_filter_can_be_disabled(self):
+        m30 = dict(NZD_M30)
+        m30["11:30"] = (2.3930, 2.3950, 2.3935, 2.3942)
+        r = run(build(NZD_H1, m30), Params(m30_counter_filter=False))[0]
+        self.assertNotEqual(r.status, "M30 MELAWAN")
+
+
 class Helpers(unittest.TestCase):
     def test_lot_size_rounds_down(self):
         # $10.000, 0,25% = $25, SL 16,5 pips, $10/pip/lot -> 0,1515 -> 0,15

@@ -12,6 +12,8 @@ Aturan (versi SELL, BUY kebalikannya). Semua jam = waktu New York.
                 ada FVG bullish (high candle-1 < low candle-3).
 5. Entry      : harga close candle H1 sweep.
 6. SL         : high candle M30 terakhir sebelum entry (+ buffer).
+                Batal kalau M30 terakhir itu menyapu low M30 sebelumnya dan
+                close bullish (CRT M30 melawan arah).
 7. Filter RR  : jarak entry -> target harus >= 1R.
 8. Kelola     : 2 order @ setengah risiko. Order A TP 1:1. Begitu A kena TP,
                 SL order B pindah ke entry (breakeven). Semua posisi
@@ -39,6 +41,7 @@ class Params:
     runner_close_hour: int | None = None  # VARIASI: Order B ditahan sampai jam ini
     swing_lookback: int = 48       # berapa candle H1 ke belakang mencari swing
     fractal_bars: int = 1          # jumlah candle di kiri/kanan untuk swing
+    m30_counter_filter: bool = True  # batal kalau M30 terakhir membentuk CRT melawan arah
 
 
 @dataclass
@@ -207,6 +210,22 @@ def find_setup(day: date, h1: pd.DataFrame, m30: pd.DataFrame, p: Params) -> Day
         if risk <= 0:
             res.status = "SL TIDAK VALID"
             continue
+
+        if p.m30_counter_filter:
+            prev_m30 = m30[m30.index == entry_time - timedelta(minutes=60)]
+            if len(prev_m30):
+                lm, pm = last_m30.iloc[0], prev_m30.iloc[0]
+                if bias == "SELL":
+                    counter = lm["low"] < pm["low"] and lm["close"] > lm["open"]
+                else:
+                    counter = lm["high"] > pm["high"] and lm["close"] < lm["open"]
+                if counter:
+                    res.status = "M30 MELAWAN"
+                    res.notes.append(
+                        f"H1 {hhmm}: M30 {last_m30.index[0]:%H:%M} sapu "
+                        f"{'low' if bias == 'SELL' else 'high'} M30 sebelumnya dan close "
+                        f"{'bullish' if bias == 'SELL' else 'bearish'}")
+                    continue
 
         tgt_i, target = _find_target(h1, trig_i, entry, bias, p)
         if tgt_i is None:

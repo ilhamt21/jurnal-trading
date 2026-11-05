@@ -12,6 +12,8 @@
 // 4. Filter    : tidak boleh ada FVG bullish di H1 dari swing target
 //                sampai candle sweep.
 // 5. Entry     : close candle H1 sweep. SL = high M30 terakhir + buffer.
+//                Batal kalau M30 terakhir menyapu low M30 sebelumnya dan
+//                close bullish (CRT M30 melawan arah).
 // 6. Filter    : target harus >= 1R.
 // 7. Kelola    : 2 order @ setengah risiko. A = TP 1:1. Setelah A kena,
 //                SL B pindah ke entry. Semua posisi ditutup jam 13:00.
@@ -27,6 +29,7 @@ riskPct   = input.float(0.5, "Risiko total per setup (%)", minval=0.01)
 sessH     = input.int(9, "Candle H4 sesi (jam NY)", options=[5, 9, 13, 17])
 runnerH   = input.int(0, "VARIASI: tahan Order B sampai jam (0 = mati)", minval=0, maxval=23)
 lookback  = input.int(48, "Cari swing H1 ke belakang (candle)", minval=5)
+m30Filter = input.bool(true, "Filter CRT M30 melawan arah")
 showSkip  = input.bool(true, "Tampilkan label alasan setup batal")
 
 TZ      = "America/New_York"
@@ -124,6 +127,7 @@ var int   nSL   = 0
 var int   nTO   = 0
 var int   nFvg  = 0
 var int   nRR   = 0
+var int   nM30  = 0
 var float totR  = 0.0
 var float eqR   = 0.0
 var float pkR   = 0.0
@@ -262,8 +266,12 @@ if h1Done and sDay == dayKey and not dayDone and not inTrade and cHr >= sessH an
                 [ti2, px2] = f_target(isSell, trig, entry, true)
                 int   tgtI = ti1 != -1 ? ti1 : ti2
                 float tgtP = ti1 != -1 ? px1 : px2
+                bool m30Counter = m30Filter and (isSell ? (low < low[1] and close > open) : (high > high[1] and close < open))
                 if risk <= 0
                     f_skip("SL tidak valid")
+                else if m30Counter
+                    nM30 += 1
+                    f_skip("M30 melawan")
                 else if tgtI == -1
                     f_skip("Tidak ada swing")
                 else if f_fvg(isSell, tgtI, trig)
@@ -327,8 +335,8 @@ if barstate.islast
     table.cell(tb, 1, 7, str.tostring(ddR, "#.##"), text_color=color.orange)
     table.cell(tb, 0, 8, "Kalah beruntun maks", text_color=color.white)
     table.cell(tb, 1, 8, str.tostring(maxLs), text_color=color.orange)
-    table.cell(tb, 0, 9, "Batal: FVG / RR<1", text_color=color.white)
-    table.cell(tb, 1, 9, str.tostring(nFvg) + " / " + str.tostring(nRR), text_color=color.gray)
+    table.cell(tb, 0, 9, "Batal: FVG / RR<1 / M30", text_color=color.white)
+    table.cell(tb, 1, 9, str.tostring(nFvg) + " / " + str.tostring(nRR) + " / " + str.tostring(nM30), text_color=color.gray)
     table.cell(tb, 0, 10, "Tahun", text_color=color.yellow)
     table.cell(tb, 1, 10, "R", text_color=color.yellow)
     table.cell(tb, 2, 10, "Setup", text_color=color.yellow)
