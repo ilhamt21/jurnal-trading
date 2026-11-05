@@ -17,8 +17,10 @@
 //                sampai candle sweep, sekecil apa pun (termasuk FVG yang
 //                candle tengahnya adalah candle swing).
 // 5. Entry     : close candle H1 sweep. SL = high M30 terakhir + buffer.
-//                Batal kalau M30 terakhir menyapu low M30 sebelumnya dan
-//                close bullish (CRT M30 melawan arah).
+//                Kalau M30 terakhir menyapu low M30 sebelumnya dan close
+//                bullish (CRT M30 melawan), tunggu maks 2 candle M30 yang
+//                close bearish (tanpa menembus high sweep); entry di close
+//                candle itu, SL di high-nya. Kalau tidak ada -> batal.
 // 6. Filter    : target harus >= 1R.
 // 7. Kelola    : 2 order @ setengah risiko. A = TP 1:1 (bisa diubah, desimal). Setelah A kena,
 //                SL B pindah ke entry. Semua posisi ditutup saat candle H4
@@ -261,11 +263,47 @@ if h1Done and n >= 4 and cHr % 4 == 0 and (not allH4 ? cHr == 8 : true)
         sessDone := false
 
 // ---------- Cari setup di candle H1 di dalam candle H4 sesi ----------
+// Hasil pencarian ditaruh di variabel kandidat, lalu dibuka di satu tempat.
+bool   cOpen  = false
+string cSide  = ""
+float  cEntry = na
+float  cSL    = na
+int    cTrigT = 0
+
+// Konfirmasi tertunda: M30 terakhir melawan arah -> tunggu maks 2 candle M30
+// yang close searah bias, selama harga belum menembus ujung sweep H1.
+var bool   pend    = false
+var int    pendCnt = 0
+var string pSide   = ""
+var float  pSweep  = na
+var int    pTrigT  = 0
+var int    pEnd    = 0      // jam tutup sesi saat konfirmasi ditunggu
+if pend and not inTrade
+    pendCnt += 1
+    bool pS     = pSide == "SELL"
+    bool broke  = pS ? high > pSweep : low < pSweep
+    bool conf   = pS ? (close < open and close < refHi) : (close > open and close > refLo)
+    if broke or barEnd >= pEnd
+        pend := false
+        nM30 += 1
+        f_skip("M30 melawan (batal)")
+    else if conf
+        pend   := false
+        cOpen  := true
+        cSide  := pSide
+        cEntry := close
+        cSL    := pS ? high : low
+        cTrigT := pTrigT
+    else if pendCnt >= 2
+        pend := false
+        nM30 += 1
+        f_skip("M30 tidak konfirmasi")
+
 // (Pine v5 tidak berhenti di 'and' pertama, jadi array dibaca terpisah dulu)
 int lastT = 0
 if n > 0
     lastT := array.get(a_t, n - 1)
-if h1Done and n > 0 and not sessDone and not inTrade and lastT >= sStart and lastT < sEnd
+if not cOpen and not pend and h1Done and n > 0 and not sessDone and not inTrade and lastT >= sStart and lastT < sEnd
     int   trig = n - 1
     float bo = array.get(a_o, trig)
     float bh = array.get(a_h, trig)
@@ -289,59 +327,78 @@ if h1Done and n > 0 and not sessDone and not inTrade and lastT >= sStart and las
             if array.get(a_t, trig) + HOUR >= sEnd
                 f_skip("Terlambat")
             else
-                float spr   = sprPips * pipSize
-                float entry = isSell ? bc : bc + spr            // BUY masuk di harga ask
-                float buf   = slBufPips * pipSize
-                float sl    = isSell ? high + buf : low - buf   // candle M30 terakhir = candle ini
-                float risk  = math.abs(sl - entry)
-                [ti1, px1] = f_target(isSell, trig, entry, false)
-                [ti2, px2] = f_target(isSell, trig, entry, true)
-                int   tgtI = ti1 != -1 ? ti1 : ti2
-                float tgtP = ti1 != -1 ? px1 : px2
                 bool m30Counter = m30Filter and (isSell ? (low < low[1] and close > open) : (high > high[1] and close < open))
-                if risk <= 0 or (not isSell and sl >= entry)
-                    f_skip("SL tidak valid")
-                else if risk / pipSize < minSlPips
-                    nSmall += 1
-                    f_skip("SL " + str.tostring(risk / pipSize, "#.#") + " pips < " + str.tostring(minSlPips))
-                else if m30Counter
-                    nM30 += 1
-                    f_skip("M30 melawan")
-                else if tgtI == -1
-                    f_skip("Tidak ada swing")
-                else if f_fvg(isSell, math.max(0, tgtI - 1), trig)
-                    nFvg += 1
-                    f_skip("FVG berlawanan")
-                else if math.abs(tgtP - entry) / risk < minRR
-                    nRR += 1
-                    f_skip("RR < " + str.tostring(minRR))
+                if m30Counter
+                    pend    := true
+                    pendCnt := 0
+                    pSide   := bias
+                    pSweep  := isSell ? bh : bl
+                    pTrigT  := array.get(a_t, trig)
+                    pEnd    := sEnd
+                    f_skip("M30 melawan, tunggu konfirmasi")
                 else
-                    inTrade  := true
-                    aOpen    := true
-                    bOpen    := true
-                    eBar     := bar_index + 1
-                    tCloseA  := sEnd
-                    tCloseB  := sEnd + runnerX * HOUR
-                    tYear    := year(time, TZ)
-                    tSess    := sHour
-                    tSide    := bias
-                    tE       := entry
-                    tSL      := sl
-                    tSLB     := sl
-                    tR       := risk
-                    tSpr     := spr
-                    tTP      := isSell ? entry - risk * tpRR : entry + risk * tpRR
-                    rA       := na
-                    rB       := na
-                    sessDone := true
-                    float qty = (strategy.initial_capital * riskPct / 200) / risk
-                    dir = isSell ? strategy.short : strategy.long
-                    strategy.entry("A", dir, qty=qty)
-                    strategy.entry("B", dir, qty=qty)
-                    strategy.exit("XA", "A", stop=sl, limit=tTP)
-                    strategy.exit("XB", "B", stop=sl)
-                    string txt = (isSell ? "SELL" : "BUY") + " (sesi " + str.tostring(sHour, "00") + ":00)" + "\nEntry " + str.tostring(entry, format.mintick) + "\nSL " + str.tostring(sl, format.mintick) + " (" + str.tostring(risk / pipSize, "#.#") + " pips)" + "\nTP A " + str.tostring(tTP, format.mintick) + " (" + str.tostring(tpRR, "#.##") + "R)" + "\nSwing " + str.tostring(tgtP, format.mintick) + " (" + str.tostring(math.abs(tgtP - entry) / risk, "#.##") + "R)"
-                    label.new(bar_index, isSell ? high : low, txt, style=isSell ? label.style_label_down : label.style_label_up, color=isSell ? color.red : color.green, textcolor=color.white, size=size.small)
+                    cOpen  := true
+                    cSide  := bias
+                    cEntry := bc
+                    cSL    := isSell ? high : low     // candle M30 terakhir = candle ini
+                    cTrigT := array.get(a_t, trig)
+
+// ---------- Cek filter kandidat lalu buka posisi ----------
+if cOpen
+    bool  isSell = cSide == "SELL"
+    int   trig   = array.indexof(a_t, cTrigT)
+    float spr    = sprPips * pipSize
+    float entry  = isSell ? cEntry : cEntry + spr          // BUY masuk di harga ask
+    float buf    = slBufPips * pipSize
+    float sl     = isSell ? cSL + buf : cSL - buf
+    float risk   = math.abs(sl - entry)
+    int   tgtI   = -1
+    float tgtP   = na
+    if trig > 0
+        [ti1, px1] = f_target(isSell, trig, entry, false)
+        [ti2, px2] = f_target(isSell, trig, entry, true)
+        tgtI := ti1 != -1 ? ti1 : ti2
+        tgtP := ti1 != -1 ? px1 : px2
+    if trig <= 0 or risk <= 0 or (not isSell and sl >= entry) or (isSell and sl <= entry)
+        f_skip("SL tidak valid")
+    else if risk / pipSize < minSlPips
+        nSmall += 1
+        f_skip("SL " + str.tostring(risk / pipSize, "#.#") + " pips < " + str.tostring(minSlPips))
+    else if tgtI == -1
+        f_skip("Tidak ada swing")
+    else if f_fvg(isSell, math.max(0, tgtI - 1), trig)
+        nFvg += 1
+        f_skip("FVG berlawanan")
+    else if math.abs(tgtP - entry) / risk < minRR
+        nRR += 1
+        f_skip("RR < " + str.tostring(minRR))
+    else
+        inTrade  := true
+        aOpen    := true
+        bOpen    := true
+        eBar     := bar_index + 1
+        tCloseA  := sEnd
+        tCloseB  := sEnd + runnerX * HOUR
+        tYear    := year(time, TZ)
+        tSess    := sHour
+        tSide    := cSide
+        tE       := entry
+        tSL      := sl
+        tSLB     := sl
+        tR       := risk
+        tSpr     := spr
+        tTP      := isSell ? entry - risk * tpRR : entry + risk * tpRR
+        rA       := na
+        rB       := na
+        sessDone := true
+        float qty = (strategy.initial_capital * riskPct / 200) / risk
+        dir = isSell ? strategy.short : strategy.long
+        strategy.entry("A", dir, qty=qty)
+        strategy.entry("B", dir, qty=qty)
+        strategy.exit("XA", "A", stop=sl, limit=tTP)
+        strategy.exit("XB", "B", stop=sl)
+        string txt = (isSell ? "SELL" : "BUY") + " (sesi " + str.tostring(sHour, "00") + ":00)" + "\nEntry " + str.tostring(entry, format.mintick) + "\nSL " + str.tostring(sl, format.mintick) + " (" + str.tostring(risk / pipSize, "#.#") + " pips)" + "\nTP A " + str.tostring(tTP, format.mintick) + " (" + str.tostring(tpRR, "#.##") + "R)" + "\nSwing " + str.tostring(tgtP, format.mintick) + " (" + str.tostring(math.abs(tgtP - entry) / risk, "#.##") + "R)"
+        label.new(bar_index, isSell ? high : low, txt, style=isSell ? label.style_label_down : label.style_label_up, color=isSell ? color.red : color.green, textcolor=color.white, size=size.small)
 
 // ---------- Gambar ----------
 inSess = time >= sStart and time < sEnd

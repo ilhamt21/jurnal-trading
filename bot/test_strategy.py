@@ -229,19 +229,41 @@ class MinSlAndSpread(unittest.TestCase):
 
 
 class M30CounterFilter(unittest.TestCase):
-    # Kasus GBPUSD 3 Nov 2026: M30 terakhir sebelum entry SELL menyapu low
-    # M30 sebelumnya lalu close bullish -> harga naik dulu, setup batal.
-    def test_counter_m30_crt_cancels_sell(self):
+    # Kasus GBPUSD 3 Nov 2026 & pair 0.978 5 Nov: M30 terakhir sebelum entry SELL
+    # menyapu low M30 sebelumnya lalu close bullish -> tunggu maks 2 candle M30
+    # yang close bearish; entry di candle itu dengan SL di high-nya.
+    COUNTER = (2.3930, 2.3950, 2.3935, 2.3942)   # 11:30: low < low 11:00, close bullish
+
+    def test_counter_then_bearish_m30_confirms(self):
         m30 = dict(NZD_M30)
-        m30["11:30"] = (2.3930, 2.3950, 2.3935, 2.3942)  # low < low 11:00, close bullish
+        m30["11:30"] = self.COUNTER
+        r = run(build(NZD_H1, m30), Params())[0]           # 12:00 M30 bearish
+        self.assertEqual(r.status, "TRADE", r.notes)
+        self.assertEqual(r.setup.entry_time.strftime("%H:%M"), "12:30")
+        self.assertAlmostEqual(r.setup.entry, 2.3934)
+        self.assertAlmostEqual(r.setup.sl, 2.3946)         # high M30 12:00 + 1 pip
+
+    def test_counter_without_confirmation_cancels(self):
+        m30 = dict(NZD_M30)
+        m30["11:30"] = self.COUNTER
+        m30["12:00"] = (2.3942, 2.3950, 2.3936, 2.3948)    # bullish
+        m30["12:30"] = (2.3948, 2.3955, 2.3940, 2.3952)    # bullish
         r = run(build(NZD_H1, m30), Params())[0]
         self.assertEqual(r.status, "M30 MELAWAN", r.notes)
 
+    def test_counter_breaking_sweep_high_cancels(self):
+        m30 = dict(NZD_M30)
+        m30["11:30"] = self.COUNTER
+        m30["12:00"] = (2.3942, 2.3980, 2.3926, 2.3934)    # tembus high sweep 2.3975
+        r = run(build(NZD_H1, m30), Params())[0]
+        self.assertNotEqual(r.status, "TRADE")
+        self.assertTrue(any("H1 11:00: M30 11:30 melawan arah" in n for n in r.notes), r.notes)
+
     def test_filter_can_be_disabled(self):
         m30 = dict(NZD_M30)
-        m30["11:30"] = (2.3930, 2.3950, 2.3935, 2.3942)
+        m30["11:30"] = self.COUNTER
         r = run(build(NZD_H1, m30), Params(m30_counter_filter=False))[0]
-        self.assertNotEqual(r.status, "M30 MELAWAN")
+        self.assertEqual(r.setup.entry_time.strftime("%H:%M"), "12:00")
 
 
 class Helpers(unittest.TestCase):

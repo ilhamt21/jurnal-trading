@@ -45,7 +45,8 @@ class Params:
     runner_close_hour: int | None = None  # VARIASI: Order B ditahan sampai jam ini
     swing_lookback: int = 48       # berapa candle H1 ke belakang mencari swing
     fractal_bars: int = 1          # jumlah candle di kiri/kanan untuk swing
-    m30_counter_filter: bool = True  # batal kalau M30 terakhir membentuk CRT melawan arah
+    m30_counter_filter: bool = True  # M30 terakhir membentuk CRT melawan arah -> tunggu konfirmasi
+    m30_confirm_bars: int = 2        # maksimal candle M30 yang ditunggu untuk konfirmasi
 
 
 @dataclass
@@ -209,34 +210,59 @@ def find_setup(day: date, h1: pd.DataFrame, m30: pd.DataFrame, p: Params) -> Day
             res.notes.append(f"candle M30 {entry_time - timedelta(minutes=30):%H:%M} tidak ada")
             continue
         buf = p.sl_buffer_pips * p.pip
-        sl = float(last_m30["high"].iloc[0] + buf) if bias == "SELL" else float(last_m30["low"].iloc[0] - buf)
         spr = p.spread_pips * p.pip
-        if bias == "BUY":
+        sell = bias == "SELL"
+        sl_bar = last_m30.iloc[0]
+
+        if p.m30_counter_filter:
+            prev_m30 = m30[m30.index == entry_time - timedelta(minutes=60)]
+            if len(prev_m30):
+                pm = prev_m30.iloc[0]
+                if sell:
+                    counter = sl_bar["low"] < pm["low"] and sl_bar["close"] > sl_bar["open"]
+                else:
+                    counter = sl_bar["high"] > pm["high"] and sl_bar["close"] < sl_bar["open"]
+                if counter:
+                    # Tunggu maksimal p.m30_confirm_bars candle M30 yang close searah
+                    # bias, selama harga belum menembus ujung sweep H1.
+                    confirmed = None
+                    for k in range(p.m30_confirm_bars):
+                        bt = entry_time + timedelta(minutes=30 * k)
+                        cb = m30[m30.index == bt]
+                        if len(cb) == 0 or bt + timedelta(minutes=30) >= close_t:
+                            break
+                        c = cb.iloc[0]
+                        if (sell and c["high"] > bar["high"]) or (not sell and c["low"] < bar["low"]):
+                            break
+                        if sell and c["close"] < c["open"] and c["close"] < ref_high:
+                            confirmed = (bt, c)
+                            break
+                        if not sell and c["close"] > c["open"] and c["close"] > ref_low:
+                            confirmed = (bt, c)
+                            break
+                    if confirmed is None:
+                        res.status = "M30 MELAWAN"
+                        res.notes.append(
+                            f"H1 {hhmm}: M30 {last_m30.index[0]:%H:%M} melawan arah, "
+                            f"tidak ada konfirmasi dalam {p.m30_confirm_bars} candle M30")
+                        continue
+                    bt, sl_bar = confirmed
+                    entry_time = bt + timedelta(minutes=30)
+                    entry = float(sl_bar["close"])
+                    res.notes.append(
+                        f"H1 {hhmm}: M30 melawan -> konfirmasi M30 {bt:%H:%M}, entry {entry_time:%H:%M}")
+
+        sl = float(sl_bar["high"] + buf) if sell else float(sl_bar["low"] - buf)
+        if not sell:
             entry += spr          # BUY masuk di harga ask
         risk = abs(sl - entry)
-        if risk <= 0 or (bias == "BUY" and sl >= entry):
+        if risk <= 0 or (not sell and sl >= entry) or (sell and sl <= entry):
             res.status = "SL TIDAK VALID"
             continue
         if risk / p.pip < p.min_sl_pips:
             res.status = "SL TERLALU KECIL"
             res.notes.append(f"H1 {hhmm}: SL hanya {risk / p.pip:.1f} pips (< {p.min_sl_pips:g})")
             continue
-
-        if p.m30_counter_filter:
-            prev_m30 = m30[m30.index == entry_time - timedelta(minutes=60)]
-            if len(prev_m30):
-                lm, pm = last_m30.iloc[0], prev_m30.iloc[0]
-                if bias == "SELL":
-                    counter = lm["low"] < pm["low"] and lm["close"] > lm["open"]
-                else:
-                    counter = lm["high"] > pm["high"] and lm["close"] < lm["open"]
-                if counter:
-                    res.status = "M30 MELAWAN"
-                    res.notes.append(
-                        f"H1 {hhmm}: M30 {last_m30.index[0]:%H:%M} sapu "
-                        f"{'low' if bias == 'SELL' else 'high'} M30 sebelumnya dan close "
-                        f"{'bullish' if bias == 'SELL' else 'bearish'}")
-                    continue
 
         tgt_i, target = _find_target(h1, trig_i, entry, bias, p)
         if tgt_i is None:
