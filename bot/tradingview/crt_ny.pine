@@ -150,6 +150,12 @@ var int   maxLs = 0
 var yrs = array.new_int()
 var yrR = array.new_float()
 var yrN = array.new_int()
+// statistik per sesi H4 (indeks 0..5 = sesi 01, 05, 09, 13, 17, 21)
+var sesN  = array.new_int(6, 0)
+var sesR  = array.new_float(6, 0.0)
+var sesTP = array.new_int(6, 0)
+var sesSL = array.new_int(6, 0)
+var int tSess = 0
 
 // ---------- Fungsi ----------
 f_target(bool isSell, int trig, float entry, bool allowEq) =>
@@ -227,6 +233,11 @@ if inTrade and bar_index >= eBar
         ddR  := math.max(ddR, pkR - eqR)
         curLs := tot < 0 ? curLs + 1 : 0
         maxLs := math.max(maxLs, curLs)
+        int si = math.floor(((tSess + 23) % 24) / 4)   // 1->0, 5->1, 9->2, 13->3, 17->4, 21->5
+        array.set(sesN, si, array.get(sesN, si) + 1)
+        array.set(sesR, si, array.get(sesR, si) + tot)
+        array.set(sesTP, si, array.get(sesTP, si) + (aRes == 1 ? 1 : 0))
+        array.set(sesSL, si, array.get(sesSL, si) + (aRes == -1 ? 1 : 0))
         int yi = array.indexof(yrs, tYear)
         if yi == -1
             array.push(yrs, tYear)
@@ -312,6 +323,7 @@ if h1Done and n > 0 and not sessDone and not inTrade and lastT >= sStart and las
                     tCloseA  := sEnd
                     tCloseB  := sEnd + runnerX * HOUR
                     tYear    := year(time, TZ)
+                    tSess    := sHour
                     tSide    := bias
                     tE       := entry
                     tSL      := sl
@@ -375,3 +387,24 @@ if barstate.islast
             table.cell(tb, 0, row, str.tostring(array.get(yrs, j)), text_color=color.white)
             table.cell(tb, 1, row, str.tostring(yr, "#.##"), text_color=yr >= 0 ? color.lime : color.red)
             table.cell(tb, 2, row, str.tostring(array.get(yrN, j)), text_color=color.white)
+
+// ---------- Tabel hasil per sesi H4 (dalam R) ----------
+var table ts = table.new(position.bottom_right, 6, 8, bgcolor=color.new(color.black, 15), border_width=1)
+if barstate.islast
+    table.clear(ts, 0, 0, 5, 7)
+    table.cell(ts, 0, 0, "Sesi", text_color=color.yellow)
+    table.cell(ts, 1, 0, "Setup", text_color=color.yellow)
+    table.cell(ts, 2, 0, "Total R", text_color=color.yellow)
+    table.cell(ts, 3, 0, "R/setup", text_color=color.yellow)
+    table.cell(ts, 4, 0, "TP A", text_color=color.yellow)
+    table.cell(ts, 5, 0, "SL", text_color=color.yellow)
+    for k = 0 to 5
+        int   nn = array.get(sesN, k)
+        float rr = array.get(sesR, k)
+        string jam = str.tostring(k * 4 + 1, "00") + ":00"
+        table.cell(ts, 0, k + 1, jam, text_color=color.white)
+        table.cell(ts, 1, k + 1, str.tostring(nn), text_color=color.white)
+        table.cell(ts, 2, k + 1, nn > 0 ? str.tostring(rr, "#.##") : "-", text_color=rr >= 0 ? color.lime : color.red)
+        table.cell(ts, 3, k + 1, nn > 0 ? str.tostring(rr / nn, "#.###") : "-", text_color=rr >= 0 ? color.lime : color.red)
+        table.cell(ts, 4, k + 1, nn > 0 ? str.tostring(100.0 * array.get(sesTP, k) / nn, "#") + "%" : "-", text_color=color.white)
+        table.cell(ts, 5, k + 1, nn > 0 ? str.tostring(100.0 * array.get(sesSL, k) / nn, "#") + "%" : "-", text_color=color.white)
