@@ -20,6 +20,8 @@ indicator("CRT Sinyal H1 + Telegram (jurnal-trading)", shorttitle="CRT H1 Sinyal
 modeSel  = input.string("09:00 saja (SOP)", "Sesi", options=["09:00 saja (SOP)", "Semua H4 (tiap 4 jam)"])
 pipIn    = input.float(0, "Ukuran pip (0 = otomatis)", minval=0, tooltip="0 = otomatis: pair JPY 0.01, lainnya 0.0001")
 useFvg   = input.bool(true, "Filter FVG berlawanan")
+openFilt = input.bool(false, "VARIASI: SELL hanya di atas open H4 sesi, BUY di bawahnya")
+maxTrigH1 = input.int(4, "VARIASI: pemicu hanya dari H1 ke-1..N di sesi (4 = semua)", minval=1, maxval=4)
 lookback = input.int(48, "Cari swing H1 ke belakang (candle)", minval=5)
 showRef  = input.bool(true, "Gambar high/low referensi")
 showSkip = input.bool(false, "Tampilkan label sinyal yang batal (FVG / tidak ada swing)")
@@ -107,6 +109,7 @@ var int    sEnd     = 0
 var int    sHour    = 0
 var string bias     = ""
 var bool   sessDone = true
+var float  sOpen    = na
 
 // ---------- Fungsi ----------
 f_target(bool isSell, int trig, float entry, bool allowEq) =>
@@ -155,6 +158,9 @@ if h1Done and n >= 4 and cHr % 4 == 0 and (not allH4 ? cHr == 8 : true)
         bias     := ""
         sessDone := false
 
+if time == sStart
+    sOpen := open    // open candle H4 sesi
+
 // ---------- Cari sinyal di candle H1 di dalam candle H4 sesi ----------
 bool   sigBuy  = false
 bool   sigSell = false
@@ -181,7 +187,13 @@ if h1Done and n > 0 and not sessDone and lastT >= sStart and lastT < sEnd
     bool swept  = isSell ? hiSw : loSw
     if not sessDone and bias != "" and swept
         bool validClose = isSell ? (bc < bo and bc < refHi) : (bc > bo and bc > refLo)
-        if validClose
+        int  hk     = math.round((array.get(a_t, trig) - sStart) / HOUR) + 1
+        bool openOk = not openFilt or (isSell ? bc > sOpen : bc < sOpen)
+        if validClose and hk > maxTrigH1
+            f_skip("H1 ke-" + str.tostring(hk) + " > " + str.tostring(maxTrigH1))
+        else if validClose and not openOk
+            f_skip("Di luar open H4")
+        else if validClose
             [ti1, px1] = f_target(isSell, trig, bc, false)
             [ti2, px2] = f_target(isSell, trig, bc, true)
             int   tgtI = ti1 != -1 ? ti1 : ti2

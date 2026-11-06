@@ -266,6 +266,23 @@ class M30CounterFilter(unittest.TestCase):
         self.assertEqual(r.setup.entry_time.strftime("%H:%M"), "12:00")
 
 
+class AnatomyFilters(unittest.TestCase):
+    # Contoh A+: open H4 09:00 = 178.355, entry SELL 178.317 (di BAWAH open),
+    # pemicu = H1 09:00 (H1 ke-1).
+    def test_h4_open_filter_rejects_sell_below_open(self):
+        r = run(build(), Params(pip=0.01, sl_buffer_pips=0.0, h4_open_filter=True))[0]
+        self.assertEqual(r.status, "DI LUAR OPEN H4", r.notes)
+
+    def test_first_h1_passes_time_filter(self):
+        r = run(build(), Params(pip=0.01, sl_buffer_pips=0.0, max_trigger_h1=1))[0]
+        self.assertEqual(r.status, "TRADE", r.notes)
+
+    def test_third_h1_rejected_by_time_filter(self):
+        # Contoh NZD: pemicu H1 11:00 = H1 ke-3
+        r = run(build(NZD_H1, NZD_M30), Params(max_trigger_h1=2))[0]
+        self.assertEqual(r.status, "LEWAT WAKTU", r.notes)
+
+
 class Helpers(unittest.TestCase):
     def test_lot_size_rounds_down(self):
         # $10.000, 0,25% = $25, SL 16,5 pips, $10/pip/lot -> 0,1515 -> 0,15

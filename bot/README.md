@@ -87,3 +87,5 @@ File: `bot/tradingview/crt_signal_h1.pine`. Memberi sinyal **BUY/SELL sampai lev
 3. **Pasang indikator** di chart M30 atau H1, buka Settings, isi **Telegram Chat ID**.
 4. **Buat alert** (ikon jam): Condition = **CRT H1 Sinyal → Any alert() function call**. Di tab Notifications centang **Webhook URL** dan isi `https://api.telegram.org/bot<TOKEN>/sendMessage`. Expiration: open-ended.
 5. Ulangi langkah 3–4 untuk setiap pair yang ingin dipantau (satu alert per pair).
+| `--h4-open-filter` | VARIASI: SELL hanya kalau entry di atas open H4 sesi, BUY di bawahnya |
+| `--max-trigger-h1 2` | VARIASI: pemicu hanya dari H1 ke-1 dan ke-2 di dalam sesi |

@@ -41,6 +41,8 @@ sprPips   = input.float(1.0, "Spread (pips)", minval=0, step=0.1, tooltip="Biaya
 runnerX   = input.int(0, "VARIASI: tahan Order B +jam setelah sesi tutup (0 = mati)", minval=0, maxval=12)
 lookback  = input.int(48, "Cari swing H1 ke belakang (candle)", minval=5)
 m30Filter = input.bool(true, "Filter CRT M30 melawan arah")
+openFilt  = input.bool(false, "VARIASI: SELL hanya di atas open H4 sesi, BUY di bawahnya")
+maxTrigH1 = input.int(4, "VARIASI: pemicu hanya dari H1 ke-1..N di sesi (4 = semua)", minval=1, maxval=4)
 showRef   = input.bool(true, "Gambar high/low referensi")
 showSkip  = input.bool(true, "Tampilkan label alasan setup batal")
 
@@ -115,6 +117,7 @@ var int    sEnd     = 0      // jam tutup candle H4 sesi (ms)
 var int    sHour    = 0
 var string bias     = ""
 var bool   sessDone = true
+var float  sOpen    = na
 
 var bool   inTrade = false
 var bool   aOpen   = false
@@ -262,6 +265,9 @@ if h1Done and n >= 4 and cHr % 4 == 0 and (not allH4 ? cHr == 8 : true)
         bias     := ""
         sessDone := false
 
+if time == sStart
+    sOpen := open    // open candle H4 sesi
+
 // ---------- Cari setup di candle H1 di dalam candle H4 sesi ----------
 // Hasil pencarian ditaruh di variabel kandidat, lalu dibuka di satu tempat.
 bool   cOpen  = false
@@ -323,7 +329,10 @@ if not cOpen and not pend and h1Done and n > 0 and not sessDone and not inTrade 
     bool swept  = isSell ? hiSw : loSw
     if not sessDone and bias != "" and swept
         bool validClose = isSell ? (bc < bo and bc < refHi) : (bc > bo and bc > refLo)
-        if validClose
+        int hk = math.round((array.get(a_t, trig) - sStart) / HOUR) + 1
+        if validClose and hk > maxTrigH1
+            f_skip("H1 ke-" + str.tostring(hk) + " > " + str.tostring(maxTrigH1))
+        else if validClose
             if array.get(a_t, trig) + HOUR >= sEnd
                 f_skip("Terlambat")
             else
@@ -361,6 +370,8 @@ if cOpen
         tgtP := ti1 != -1 ? px1 : px2
     if trig <= 0 or risk <= 0 or (not isSell and sl >= entry) or (isSell and sl <= entry)
         f_skip("SL tidak valid")
+    else if openFilt and (isSell ? cEntry <= sOpen : cEntry >= sOpen)
+        f_skip("Di luar open H4")
     else if risk / pipSize < minSlPips
         nSmall += 1
         f_skip("SL " + str.tostring(risk / pipSize, "#.#") + " pips < " + str.tostring(minSlPips))

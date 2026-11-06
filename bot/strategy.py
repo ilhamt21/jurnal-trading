@@ -47,6 +47,8 @@ class Params:
     fractal_bars: int = 1          # jumlah candle di kiri/kanan untuk swing
     m30_counter_filter: bool = True  # M30 terakhir membentuk CRT melawan arah -> tunggu konfirmasi
     m30_confirm_bars: int = 2        # maksimal candle M30 yang ditunggu untuk konfirmasi
+    h4_open_filter: bool = False     # VARIASI: SELL hanya di atas open H4 sesi, BUY di bawahnya
+    max_trigger_h1: int = 4          # VARIASI: pemicu hanya dari H1 ke-1..N di sesi (4 = semua)
 
 
 @dataclass
@@ -195,6 +197,12 @@ def find_setup(day: date, h1: pd.DataFrame, m30: pd.DataFrame, p: Params) -> Day
                 res.notes.append(f"H1 {hhmm}: close tidak bullish / tidak kembali di atas low")
                 continue
 
+        h1_no = int((t - win_start) / timedelta(hours=1)) + 1
+        if h1_no > p.max_trigger_h1:
+            res.status = "LEWAT WAKTU"
+            res.notes.append(f"H1 {hhmm}: pemicu di H1 ke-{h1_no} (maks {p.max_trigger_h1})")
+            continue
+
         entry_time = t + timedelta(hours=1)
         if entry_time >= close_t:
             res.status = "TERLAMBAT"
@@ -251,6 +259,14 @@ def find_setup(day: date, h1: pd.DataFrame, m30: pd.DataFrame, p: Params) -> Day
                     entry = float(sl_bar["close"])
                     res.notes.append(
                         f"H1 {hhmm}: M30 melawan -> konfirmasi M30 {bt:%H:%M}, entry {entry_time:%H:%M}")
+
+        if p.h4_open_filter:
+            s_open = float(window["open"].iloc[0])
+            if (sell and entry <= s_open) or (not sell and entry >= s_open):
+                res.status = "DI LUAR OPEN H4"
+                res.notes.append(
+                    f"H1 {hhmm}: entry {entry:.5f} {'di bawah' if sell else 'di atas'} open H4 {s_open:.5f}")
+                continue
 
         sl = float(sl_bar["high"] + buf) if sell else float(sl_bar["low"] - buf)
         if not sell:
