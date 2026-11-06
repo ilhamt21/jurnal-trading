@@ -89,3 +89,13 @@ File: `bot/tradingview/crt_signal_h1.pine`. Memberi sinyal **BUY/SELL sampai lev
 5. Ulangi langkah 3–4 untuk setiap pair yang ingin dipantau (satu alert per pair).
 | `--h4-open-filter` | VARIASI: SELL hanya kalau entry di atas open H4 sesi, BUY di bawahnya |
 | `--max-trigger-h1 2` | VARIASI: pemicu hanya dari H1 ke-1 dan ke-2 di dalam sesi |
+
+### Monitor likuiditas (di indikator sinyal H1)
+
+Indikator melacak level likuiditas dan statusnya (**fresh** = belum ditembus sejak terbentuk):
+high/low harian (PDH/PDL, beberapa hari ke belakang), high/low minggu lalu (PWH/PWL), high/low sesi Asia dan London, serta equal highs/lows dari swing H1.
+
+- **Tabel kiri bawah:** level yang tersapu di candle H1 terakhir yang sudah close, dan 3 level fresh terdekat di atas dan di bawah harga.
+- **Garis putus-putus:** level fresh (merah = atas, hijau = bawah). Garis hilang begitu level tersapu.
+- **Sinyal/notifikasi** menyebutkan level fresh yang tersapu di sisi sweep selama sesi berjalan.
+- **Filter opsional:** "minimal level fresh tersapu di sisi sweep" (0 = mati).

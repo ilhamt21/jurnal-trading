@@ -14,7 +14,7 @@
 // Telegram: isi "Telegram Chat ID", lalu buat alert dengan kondisi
 // "Any alert() function call" dan Webhook URL:
 //   https://api.telegram.org/bot<TOKEN_BOT_ANDA>/sendMessage
-indicator("CRT Sinyal H1 + Telegram (jurnal-trading)", shorttitle="CRT H1 Sinyal", overlay=true, max_labels_count=500)
+indicator("CRT Sinyal H1 + Telegram (jurnal-trading)", shorttitle="CRT H1 Sinyal", overlay=true, max_labels_count=500, max_lines_count=500)
 
 // ---------- Pengaturan ----------
 modeSel  = input.string("09:00 saja (SOP)", "Sesi", options=["09:00 saja (SOP)", "Semua H4 (tiap 4 jam)"])
@@ -26,6 +26,21 @@ lookback = input.int(48, "Cari swing H1 ke belakang (candle)", minval=5)
 showRef  = input.bool(true, "Gambar high/low referensi")
 showSkip = input.bool(false, "Tampilkan label sinyal yang batal (FVG / tidak ada swing)")
 chatId   = input.string("", "Telegram Chat ID", tooltip="Kosongkan kalau hanya ingin notifikasi TradingView biasa")
+
+// ---------- Pengaturan monitor likuiditas ----------
+grpL      = "Monitor likuiditas (level fresh)"
+liqOn     = input.bool(true, "Aktifkan monitor likuiditas", group=grpL)
+daysBack  = input.int(3, "Simpan level berapa hari ke belakang", minval=1, maxval=20, group=grpL)
+useDay    = input.bool(true, "High/low harian (PDH/PDL)", group=grpL)
+useWeek   = input.bool(true, "High/low minggu lalu (PWH/PWL)", group=grpL)
+useAsia   = input.bool(true, "High/low sesi Asia", group=grpL)
+asiaSess  = input.session("2000-2359", "Jam sesi Asia (NY)", group=grpL)
+useLon    = input.bool(true, "High/low sesi London", group=grpL)
+lonSess   = input.session("0200-0500", "Jam sesi London (NY)", group=grpL)
+useEq     = input.bool(true, "Equal highs/lows (swing H1)", group=grpL)
+eqTolPips = input.float(1.0, "Toleransi equal (pips)", minval=0, step=0.1, group=grpL)
+showLvl   = input.bool(true, "Gambar garis level fresh", group=grpL)
+minLoc    = input.int(0, "Filter: minimal level fresh tersapu di sisi sweep (0 = mati)", minval=0, group=grpL)
 
 TZ    = "America/New_York"
 HOUR  = 3600000
@@ -100,6 +115,160 @@ if h1Done
         array.shift(a_t)
 
 n = array.size(a_o)
+
+// ---------- Monitor likuiditas: level fresh & yang sudah tersapu ----------
+var lp    = array.new_float()    // harga level
+var lname = array.new_string()   // nama level
+var lhigh = array.new_bool()     // true = level atas (high)
+var lt    = array.new_int()      // waktu level dibuat
+var lfr   = array.new_bool()     // masih fresh?
+var lst   = array.new_int()      // waktu tersapu
+var lln   = array.new_line()     // garis di chart
+var string h1Swept   = ""        // level tersapu di candle H1 yang sedang berjalan
+var string lastSwept = ""        // level tersapu di candle H1 terakhir yang sudah close
+var int    lastH1T   = 0
+
+f_push(float price, string name, bool isHigh) =>
+    if liqOn and not na(price)
+        array.push(lp, price)
+        array.push(lname, name)
+        array.push(lhigh, isHigh)
+        array.push(lt, time)
+        array.push(lfr, true)
+        array.push(lst, 0)
+        line ln = na
+        if showLvl
+            ln := line.new(bar_index, price, bar_index + 1, price, extend=extend.right, color=isHigh ? color.new(color.red, 40) : color.new(color.green, 40), style=line.style_dotted)
+        array.push(lln, ln)
+
+// High/low harian (hari forex mulai 17:00 NY) dan mingguan
+var float dHi = na
+var float dLo = na
+var int   dT  = 0
+var float wHi = na
+var float wLo = na
+if timeframe.change("D")
+    if useDay and not na(dHi)
+        string tg = str.format_time(dT, "dd/MM", TZ)
+        f_push(dHi, "PDH " + tg, true)
+        f_push(dLo, "PDL " + tg, false)
+    dHi := high
+    dLo := low
+    dT  := time
+else
+    dHi := math.max(nz(dHi, high), high)
+    dLo := math.min(nz(dLo, low), low)
+if timeframe.change("W")
+    if useWeek and not na(wHi)
+        f_push(wHi, "PWH", true)
+        f_push(wLo, "PWL", false)
+    wHi := high
+    wLo := low
+else
+    wHi := math.max(nz(wHi, high), high)
+    wLo := math.min(nz(wLo, low), low)
+
+// High/low sesi Asia & London
+inAsia = not na(time(timeframe.period, asiaSess, TZ))
+inLon  = not na(time(timeframe.period, lonSess, TZ))
+var float aHi = na
+var float aLo = na
+var float oHi = na
+var float oLo = na
+if inAsia and not inAsia[1]
+    aHi := high
+    aLo := low
+else if inAsia
+    aHi := math.max(aHi, high)
+    aLo := math.min(aLo, low)
+if not inAsia and inAsia[1] and useAsia
+    string tg = str.format_time(time, "dd/MM", TZ)
+    f_push(aHi, "Asia H " + tg, true)
+    f_push(aLo, "Asia L " + tg, false)
+if inLon and not inLon[1]
+    oHi := high
+    oLo := low
+else if inLon
+    oHi := math.max(oHi, high)
+    oLo := math.min(oLo, low)
+if not inLon and inLon[1] and useLon
+    string tg = str.format_time(time, "dd/MM", TZ)
+    f_push(oHi, "London H " + tg, true)
+    f_push(oLo, "London L " + tg, false)
+
+// Equal highs/lows dari swing H1 yang masih fresh
+var swH = array.new_float()
+var swL = array.new_float()
+if useEq and h1Done and n >= 3
+    float mh = array.get(a_h, n - 2)
+    float ml = array.get(a_l, n - 2)
+    bool isSwH = mh > array.get(a_h, n - 3) and mh >= array.get(a_h, n - 1)
+    bool isSwL = ml < array.get(a_l, n - 3) and ml <= array.get(a_l, n - 1)
+    if isSwH and array.size(swH) > 0
+        for j = 0 to array.size(swH) - 1
+            if math.abs(array.get(swH, j) - mh) <= eqTolPips * pip
+                f_push(math.max(array.get(swH, j), mh), "EQH " + str.format_time(array.get(a_t, n - 2), "dd/MM HH:mm", TZ), true)
+                break
+    if isSwH
+        array.push(swH, mh)
+    if isSwL and array.size(swL) > 0
+        for j = 0 to array.size(swL) - 1
+            if math.abs(array.get(swL, j) - ml) <= eqTolPips * pip
+                f_push(math.min(array.get(swL, j), ml), "EQL " + str.format_time(array.get(a_t, n - 2), "dd/MM HH:mm", TZ), false)
+                break
+    if isSwL
+        array.push(swL, ml)
+    if array.size(swH) > 30
+        array.shift(swH)
+    if array.size(swL) > 30
+        array.shift(swL)
+// swing yang sudah ditembus tidak dipakai lagi untuk equal
+if array.size(swH) > 0
+    for j = array.size(swH) - 1 to 0
+        if high > array.get(swH, j)
+            array.remove(swH, j)
+if array.size(swL) > 0
+    for j = array.size(swL) - 1 to 0
+        if low < array.get(swL, j)
+            array.remove(swL, j)
+
+// Cek level yang tersapu di candle ini, dan buang level yang sudah terlalu lama
+if array.size(lp) > 0
+    for j = array.size(lp) - 1 to 0
+        bool tooOld = time - array.get(lt, j) > daysBack * 24 * HOUR
+        bool fr = array.get(lfr, j)
+        if fr and array.get(lt, j) < time
+            bool hit = array.get(lhigh, j) ? high > array.get(lp, j) : low < array.get(lp, j)
+            if hit
+                array.set(lfr, j, false)
+                array.set(lst, j, time)
+                h1Swept := h1Swept + (h1Swept == "" ? "" : ", ") + array.get(lname, j)
+                line.delete(array.get(lln, j))
+        if tooOld and (not array.get(lfr, j) ? time - array.get(lst, j) > 24 * HOUR : true)
+            line.delete(array.get(lln, j))
+            array.remove(lp, j)
+            array.remove(lname, j)
+            array.remove(lhigh, j)
+            array.remove(lt, j)
+            array.remove(lfr, j)
+            array.remove(lst, j)
+            array.remove(lln, j)
+
+if h1Done
+    lastSwept := h1Swept
+    lastH1T   := cT
+    h1Swept   := ""
+
+// Level di satu sisi yang tersapu sejak waktu t0 -> [jumlah, daftar nama]
+f_sweptSince(bool isHigh, int t0) =>
+    int    cnt   = 0
+    string names = ""
+    if array.size(lp) > 0
+        for j = 0 to array.size(lp) - 1
+            if not array.get(lfr, j) and array.get(lhigh, j) == isHigh and array.get(lst, j) >= t0
+                cnt += 1
+                names := names + (names == "" ? "" : ", ") + array.get(lname, j)
+    [cnt, names]
 
 // ---------- Status sesi ----------
 var float  refHi    = na
@@ -198,8 +367,11 @@ if h1Done and n > 0 and not sessDone and lastT >= sStart and lastT < sEnd
             [ti2, px2] = f_target(isSell, trig, bc, true)
             int   tgtI = ti1 != -1 ? ti1 : ti2
             float tgtP = ti1 != -1 ? px1 : px2
+            [locN, locNames] = f_sweptSince(isSell, sStart)
             if tgtI == -1
                 f_skip("Tidak ada swing")
+            else if liqOn and minLoc > 0 and locN < minLoc
+                f_skip("Lokasi lemah (" + str.tostring(locN) + " level)")
             else if useFvg and f_fvg(isSell, math.max(0, tgtI - 1), trig)
                 f_skip("FVG berlawanan")
             else
@@ -213,7 +385,7 @@ if h1Done and n > 0 and not sessDone and lastT >= sStart and lastT < sEnd
                 float  refX   = isSell ? refHi : refLo
                 float  dist   = math.abs(bc - tgtP) / pip
                 string nl     = "\\n"
-                string msg = (isSell ? "SELL " : "BUY ") + syminfo.ticker + " - CRT sesi H4 " + sesJam + " NY" + nl + "H1 " + h1Jam + " close " + f_px(bc) + nl + "Sweep " + (isSell ? "high " : "low ") + f_px(refX) + " sampai " + f_px(sweepX) + nl + "Target swing H1: " + f_px(tgtP) + " (" + str.tostring(dist, "#.#") + " pips)" + nl + "FVG berlawanan: tidak ada" + (lastH1 ? nl + "Catatan: candle H1 terakhir di sesi ini" : "") + nl + "Lanjut cek M30 untuk entry dan SL."
+                string msg = (isSell ? "SELL " : "BUY ") + syminfo.ticker + " - CRT sesi H4 " + sesJam + " NY" + nl + "H1 " + h1Jam + " close " + f_px(bc) + nl + "Sweep " + (isSell ? "high " : "low ") + f_px(refX) + " sampai " + f_px(sweepX) + nl + "Target swing H1: " + f_px(tgtP) + " (" + str.tostring(dist, "#.#") + " pips)" + nl + "FVG berlawanan: tidak ada" + (liqOn ? nl + "Level fresh tersapu sesi ini (" + str.tostring(locN) + "): " + (locN > 0 ? locNames : "-") : "") + (lastH1 ? nl + "Catatan: candle H1 terakhir di sesi ini" : "") + nl + "Lanjut cek M30 untuk entry dan SL."
                 // Telegram butuh JSON (baris baru ditulis \n); notifikasi biasa pakai baris baru asli
                 string payload = chatId == "" ? str.replace_all(msg, "\\n", "\n") : "{\"chat_id\":\"" + chatId + "\",\"text\":\"" + msg + "\"}"
                 alert(payload, alert.freq_once_per_bar_close)
@@ -226,3 +398,32 @@ plot(showRef and inSess ? refHi : na, "High referensi", color=color.blue, style=
 plot(showRef and inSess ? refLo : na, "Low referensi", color=color.blue, style=plot.style_linebr)
 plotshape(sigSell, "Sinyal SELL", shape.triangledown, location.abovebar, color.red, size=size.tiny)
 plotshape(sigBuy, "Sinyal BUY", shape.triangleup, location.belowbar, color.green, size=size.tiny)
+
+// ---------- Tabel monitor likuiditas ----------
+var table tl = table.new(position.bottom_left, 3, 9, bgcolor=color.new(color.black, 15), border_width=1)
+if liqOn and barstate.islast
+    table.clear(tl, 0, 0, 2, 8)
+    table.cell(tl, 0, 0, "Close H1 " + str.format_time(lastH1T, "dd/MM HH:mm", TZ), text_color=color.yellow)
+    table.cell(tl, 1, 0, "Disapu: " + (lastSwept == "" ? "-" : lastSwept), text_color=color.white, text_halign=text.align_left)
+    table.merge_cells(tl, 1, 0, 2, 0)
+    // 3 level fresh terdekat di atas dan di bawah harga
+    for side = 0 to 1
+        bool  up   = side == 0
+        float prev = up ? close : close
+        for r = 0 to 2
+            int   best = -1
+            float bd   = 1e10
+            if array.size(lp) > 0
+                for j = 0 to array.size(lp) - 1
+                    float pr = array.get(lp, j)
+                    bool  ok = array.get(lfr, j) and array.get(lhigh, j) == up and (up ? pr > prev : pr < prev)
+                    if ok and math.abs(pr - close) < bd
+                        bd   := math.abs(pr - close)
+                        best := j
+            int row = up ? 3 - r : 5 + r
+            if best >= 0
+                prev := array.get(lp, best)
+                table.cell(tl, 0, row, up ? "Fresh di atas" : "Fresh di bawah", text_color=up ? color.red : color.lime)
+                table.cell(tl, 1, row, array.get(lname, best), text_color=color.white)
+                table.cell(tl, 2, row, f_px(array.get(lp, best)) + " (" + str.tostring(bd / pip, "#.#") + " pips)", text_color=color.white)
+    table.cell(tl, 0, 4, "Harga " + f_px(close), text_color=color.gray)
