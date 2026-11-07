@@ -27,7 +27,7 @@ f_styleIn(string s) =>
 gH = "Tingkat 1: HTF (Daily / H4)"
 hShow  = input.bool(true, "Tampilkan", group=gH)
 hN     = input.int(3, "Jumlah candle", minval=1, maxval=10, group=gH)
-hOpen  = input.bool(true, "Garis open", group=gH)
+hOpen  = input.bool(false, "Garis open", group=gH)
 hSty   = input.string("Solid", "Style", options=["Solid", "Putus-putus", "Titik-titik"], group=gH, inline="h")
 hW     = input.int(2, "Tebal", minval=1, maxval=4, group=gH, inline="h")
 hCol   = input.color(color.new(color.blue, 0), "", group=gH, inline="h")
@@ -35,7 +35,7 @@ hCol   = input.color(color.new(color.blue, 0), "", group=gH, inline="h")
 gM = "Tingkat 2: MTF (H6 / H1)"
 mShow  = input.bool(true, "Tampilkan", group=gM)
 mN     = input.int(4, "Jumlah candle", minval=1, maxval=10, group=gM)
-mOpen  = input.bool(true, "Garis open (semua open MTF di dalam HTF yang berjalan, mis. 4 open H6 hari ini)", group=gM)
+mOpen  = input.bool(false, "Garis open (semua open MTF di dalam HTF yang berjalan, mis. 4 open H6 hari ini)", group=gM)
 mSty   = input.string("Putus-putus", "Style", options=["Solid", "Putus-putus", "Titik-titik"], group=gM, inline="m")
 mW     = input.int(1, "Tebal", minval=1, maxval=4, group=gM, inline="m")
 mCol   = input.color(color.new(color.purple, 0), "", group=gM, inline="m")
@@ -43,14 +43,14 @@ mCol   = input.color(color.new(color.purple, 0), "", group=gM, inline="m")
 gL = "Tingkat 3: LTF (M90, hanya rantai Daily)"
 lShow  = input.bool(true, "Tampilkan", group=gL)
 lN     = input.int(4, "Jumlah candle", minval=1, maxval=10, group=gL)
-lOpen  = input.bool(true, "Garis open", group=gL)
+lOpen  = input.bool(false, "Garis open", group=gL)
 lSty   = input.string("Titik-titik", "Style", options=["Solid", "Putus-putus", "Titik-titik"], group=gL, inline="l")
 lW     = input.int(1, "Tebal", minval=1, maxval=4, group=gL, inline="l")
 lCol   = input.color(color.new(color.orange, 0), "", group=gL, inline="l")
 
 
 gR = "C1 (Daily) / Referensi H4 jam 05:00"
-rShow  = input.bool(true, "Garis high & low C1 / H4 05:00", group=gR)
+rShow  = input.bool(false, "Garis high & low C1 / H4 05:00", group=gR)
 rDays  = input.int(1, "Riwayat (hari): 1 = hanya hari ini", minval=1, maxval=7, group=gR)
 rSty   = input.string("Solid", "Style", options=["Solid", "Putus-putus", "Titik-titik"], group=gR, inline="r")
 rW     = input.int(2, "Tebal", minval=1, maxval=4, group=gR, inline="r")
@@ -58,8 +58,8 @@ rColH  = input.color(color.new(color.red, 0), "High", group=gR, inline="rc")
 rColL  = input.color(color.new(color.green, 0), "Low", group=gR, inline="rc")
 
 gQ = "Likuiditas (3 hari ke belakang)"
-qShow  = input.bool(true, "High/low Daily (PDH/PDL)", group=gQ)
-qSess  = input.bool(true, "Sesi Asia 20-00, London 02-05, NY AM 07-11, NY PM 13:30-16 (hanya rantai H4)", group=gQ)
+qShow  = input.bool(false, "High/low Daily (PDH/PDL)", group=gQ)
+qSess  = input.bool(false, "Sesi Asia 20-00, London 02-05, NY AM 07-11, NY PM 13:30-16 (hanya rantai H4)", group=gQ)
 qSty   = input.string("Putus-putus", "Style", options=["Solid", "Putus-putus", "Titik-titik"], group=gQ, inline="q")
 qW     = input.int(1, "Tebal", minval=1, maxval=4, group=gQ, inline="q")
 qColH  = input.color(color.new(color.maroon, 0), "High", group=gQ, inline="qc")
@@ -68,7 +68,7 @@ qLen   = input.int(6, "Panjang garis likuiditas (bar, di kanan panel)", minval=2
 qSwept = input.string("Tetap, tapi samar", "Level yang sudah tersapu", options=["Tetap, tapi samar", "Tetap, sama", "Sembunyikan"], group=gQ)
 
 gF = "Garis high/low 4 M90 terakhir (rantai Daily)"
-fShow  = input.bool(true, "Tampilkan (4 M90 terakhir yang sudah close, bergulir)", group=gF)
+fShow  = input.bool(false, "Tampilkan (4 M90 terakhir yang sudah close, bergulir)", group=gF)
 fSty   = input.string("Titik-titik", "Style", options=["Solid", "Putus-putus", "Titik-titik"], group=gF, inline="f")
 fW     = input.int(1, "Tebal", minval=1, maxval=4, group=gF, inline="f")
 fColH  = input.color(color.new(color.gray, 0), "High", group=gF, inline="fc")
