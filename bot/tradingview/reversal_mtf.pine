@@ -33,6 +33,14 @@ showMtf   = input.bool(true, "Candle bayangan MTF (H6 untuk Daily / H1 untuk H4)
 showHtf   = input.bool(false, "Candle bayangan HTF (Daily / H4)")
 sweepAlrt = input.bool(false, "Alert juga saat sweep terjadi (sebelum pemicu)")
 
+grpE      = "ENTRY: bias MTF lalu sweep candle kecil"
+useEntry  = input.bool(true, "Tampilkan sinyal ENTRY", group=grpE)
+eBufPips  = input.float(1.0, "Buffer SL (pips)", minval=0, step=0.1, group=grpE)
+eMinRR    = input.float(1.0, "RR minimal ke target (low/high C1)", minval=0, step=0.1, group=grpE)
+eWait     = input.int(2, "Maks candle kecil menunggu close setelah sweep", minval=1, maxval=4, group=grpE)
+pipIn     = input.float(0, "Ukuran pip (0 = otomatis)", minval=0, group=grpE)
+pip       = pipIn > 0 ? pipIn : (syminfo.currency == "JPY" ? 0.01 : 0.0001)
+
 isDaily = mode == "Daily - H6 - M90"
 htf = isDaily ? "D" : "240"
 mtf = isDaily ? "360" : "60"
@@ -52,6 +60,10 @@ hO = request.security(sym, htf, open, lookahead=barmerge.lookahead_on)
 
 newHTF = ta.change(time(htf)) != 0
 newMTF = ta.change(time(mtf)) != 0
+// Candle kecil (M90/M30) terakhir yang sudah close + candle sebelumnya, dan open MTF yang sedang berjalan
+[lO, lH, lL, lC, lHp, lLp] = request.security(sym, ltf, [open[1], high[1], low[1], close[1], high[2], low[2]], lookahead=barmerge.lookahead_on)
+newLTF   = ta.change(time(ltf)) != 0
+mOpenNow = request.security(sym, mtf, open, lookahead=barmerge.lookahead_on)
 
 f_px(float v) =>
     str.tostring(v, format.mintick)
@@ -249,6 +261,148 @@ if newMTF and not newHTF and swH and not doneS and showBear and mC < pH and mC <
         label.new(bar_index - 1, mH, "SELL " + str.tostring(sc), style=label.style_label_down, color=sc >= 8 ? color.red : sc >= 6 ? color.new(color.red, 30) : color.new(color.red, 55), textcolor=color.white, size=size.small, tooltip=tip)
         alert(syminfo.ticker + " REVERSAL BEARISH skor " + str.tostring(sc) + "/10 (" + mode + "): sweep high C1 " + f_px(pH) + ", MTF close " + f_px(mC) + " < open " + f_px(hO), alert.freq_once_per_bar)
 
+// ---------- ENTRY: bias dari MTF, entry dari sweep candle kecil di MTF berikutnya ----------
+// SELL: (1) candle MTF menyapu high C1 lalu close bearish kembali di bawahnya = BIAS
+//       (2) di candle MTF berikutnya, candle kecil menyapu high candle kecil sebelumnya
+//       (3) candle kecil close bearish di bawah open MTF dan di bawah high yang disapu
+//           (maks eWait candle setelah sweep) = ENTRY. SL di atas ujung sweep, target low C1.
+// BUY kebalikannya.
+var bool  biasS = false
+var int   biasSIdx = 0
+var float biasSTop = na
+var bool  entS = false
+var int   cntS = -1
+var float swHiS = na
+var float swLvS = na
+var bool  biasB = false
+var int   biasBIdx = 0
+var float biasBBot = na
+var bool  entB = false
+var int   cntB = -1
+var float swLoB = na
+var float swLvB = na
+// posisi simulasi untuk statistik
+var bool  inT = false
+var bool  tSell = false
+var float tE = na
+var float tSL = na
+var float tTg = na
+var float tR = na
+var int   tBar = 0
+var eN  = array.new_int(2, 0)       // 0 = BUY, 1 = SELL
+var eW  = array.new_int(2, 0)
+var eRs = array.new_float(2, 0.0)
+
+f_closeT(float r) =>
+    int k = tSell ? 1 : 0
+    array.set(eN, k, array.get(eN, k) + 1)
+    array.set(eRs, k, array.get(eRs, k) + r)
+    if r > 0
+        array.set(eW, k, array.get(eW, k) + 1)
+
+// kelola posisi simulasi
+if inT and bar_index > tBar
+    if newHTF
+        f_closeT(((tSell ? tE - open : open - tE)) / tR)
+        inT := false
+    else if tSell ? high >= tSL : low <= tSL
+        f_closeT(-1.0)
+        inT := false
+    else if tSell ? low <= tTg : high >= tTg
+        f_closeT(math.abs(tE - tTg) / tR)
+        inT := false
+
+if newHTF
+    biasS := false
+    entS := false
+    cntS := -1
+    biasB := false
+    entB := false
+    cntB := -1
+else if useEntry
+    // (1) bias dari candle MTF yang baru close
+    if newMTF
+        if not biasS and mH > pH and mC < pH and mC < mO
+            biasS := true
+            biasSIdx := prevIdx
+            biasSTop := curHi
+        if not biasB and mL < pL and mC > pL and mC > mO
+            biasB := true
+            biasBIdx := prevIdx
+            biasBBot := curLo
+    // bias batal kalau harga menembus ujung sweep MTF
+    if biasS and close > biasSTop
+        biasS := false
+    if biasB and close < biasBBot
+        biasB := false
+    // (2)+(3) sweep candle kecil dan close konfirmasi di MTF berikutnya
+    if newLTF
+        int   compIdx = newMTF ? prevIdx : mIdx
+        float mOpenC  = newMTF ? mO : mOpenNow
+        float buf     = eBufPips * pip
+        if biasS and not entS and compIdx > biasSIdx
+            if lH > lHp
+                cntS := 0
+                swHiS := lH
+                swLvS := lHp
+            else if cntS >= 0
+                cntS += 1
+                swHiS := math.max(swHiS, lH)
+            if cntS >= 0 and cntS < eWait and lC < lO and lC < mOpenC and lC < swLvS
+                float e  = lC
+                float sl = swHiS + buf
+                float r  = sl - e
+                float rr = r > 0 ? (e - pL) / r : 0
+                if r > 0 and rr >= eMinRR
+                    entS := true
+                    if not inT
+                        inT := true
+                        tSell := true
+                        tE := e
+                        tSL := sl
+                        tTg := pL
+                        tR := r
+                        tBar := bar_index
+                    string tx = "ENTRY SELL\nE " + f_px(e) + "  SL " + f_px(sl) + "\nTarget " + f_px(pL) + " (" + str.tostring(rr, "#.#") + "R)"
+                    label.new(bar_index - 1, lH, tx, style=label.style_label_down, color=color.new(color.maroon, 0), textcolor=color.white, size=size.small)
+                    box.new(bar_index, sl, bar_index + 8, e, border_color=color.new(color.red, 60), bgcolor=color.new(color.red, 85))
+                    box.new(bar_index, e, bar_index + 8, pL, border_color=color.new(color.teal, 60), bgcolor=color.new(color.teal, 85))
+                    alert(syminfo.ticker + " ENTRY SELL (" + mode + "): entry " + f_px(e) + ", SL " + f_px(sl) + ", target " + f_px(pL) + " (" + str.tostring(rr, "#.#") + "R)", alert.freq_once_per_bar)
+                cntS := -1
+            if cntS >= eWait
+                cntS := -1
+        if biasB and not entB and compIdx > biasBIdx
+            if lL < lLp
+                cntB := 0
+                swLoB := lL
+                swLvB := lLp
+            else if cntB >= 0
+                cntB += 1
+                swLoB := math.min(swLoB, lL)
+            if cntB >= 0 and cntB < eWait and lC > lO and lC > mOpenC and lC > swLvB
+                float e  = lC
+                float sl = swLoB - buf
+                float r  = e - sl
+                float rr = r > 0 ? (pH - e) / r : 0
+                if r > 0 and rr >= eMinRR
+                    entB := true
+                    if not inT
+                        inT := true
+                        tSell := false
+                        tE := e
+                        tSL := sl
+                        tTg := pH
+                        tR := r
+                        tBar := bar_index
+                    string tx = "ENTRY BUY\nE " + f_px(e) + "  SL " + f_px(sl) + "\nTarget " + f_px(pH) + " (" + str.tostring(rr, "#.#") + "R)"
+                    label.new(bar_index - 1, lL, tx, style=label.style_label_up, color=color.new(color.teal, 0), textcolor=color.white, size=size.small)
+                    box.new(bar_index, e, bar_index + 8, sl, border_color=color.new(color.red, 60), bgcolor=color.new(color.red, 85))
+                    box.new(bar_index, pH, bar_index + 8, e, border_color=color.new(color.teal, 60), bgcolor=color.new(color.teal, 85))
+                    alert(syminfo.ticker + " ENTRY BUY (" + mode + "): entry " + f_px(e) + ", SL " + f_px(sl) + ", target " + f_px(pH) + " (" + str.tostring(rr, "#.#") + "R)", alert.freq_once_per_bar)
+                cntB := -1
+            if cntB >= eWait
+                cntB := -1
+
 // ---------- Gambar ----------
 plot(showLvl ? pH : na, "High C1", color=color.new(color.red, 30), style=plot.style_stepline)
 plot(showLvl ? pL : na, "Low C1", color=color.new(color.green, 30), style=plot.style_stepline)
@@ -270,3 +424,19 @@ if barstate.islast
         table.cell(ts, 0, k + 1, array.get(nm, k), text_color=color.white, text_size=size.small)
         table.cell(ts, 1, k + 1, f_cell(array.get(wB, j), array.get(nB, j)), text_color=color.white, text_size=size.small)
         table.cell(ts, 2, k + 1, f_cell(array.get(wS, j), array.get(nS, j)), text_color=color.white, text_size=size.small)
+
+// ---------- Tabel hasil ENTRY (simulasi: SL di ujung sweep, target low/high C1, tutup saat candle HTF close) ----------
+var table te = table.new(position.top_right, 4, 3, bgcolor=color.new(color.black, 20), border_width=1)
+if useEntry and barstate.islast
+    table.clear(te, 0, 0, 3, 2)
+    table.cell(te, 0, 0, "ENTRY", text_color=color.yellow, text_size=size.small)
+    table.cell(te, 1, 0, "Trade", text_color=color.yellow, text_size=size.small)
+    table.cell(te, 2, 0, "Menang", text_color=color.yellow, text_size=size.small)
+    table.cell(te, 3, 0, "Total R", text_color=color.yellow, text_size=size.small)
+    for k = 0 to 1
+        int   n_ = array.get(eN, k)
+        float r_ = array.get(eRs, k)
+        table.cell(te, 0, k + 1, k == 0 ? "BUY" : "SELL", text_color=k == 0 ? color.lime : color.red, text_size=size.small)
+        table.cell(te, 1, k + 1, str.tostring(n_), text_color=color.white, text_size=size.small)
+        table.cell(te, 2, k + 1, n_ > 0 ? str.tostring(100.0 * array.get(eW, k) / n_, "#") + "%" : "-", text_color=color.white, text_size=size.small)
+        table.cell(te, 3, k + 1, str.tostring(r_, "#.#"), text_color=r_ >= 0 ? color.lime : color.red, text_size=size.small)

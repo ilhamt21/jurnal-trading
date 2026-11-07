@@ -119,3 +119,8 @@ File: `bot/tradingview/reversal_mtf.pine`. Pilihan rantai: **Daily → H6 → M9
 - **Tabel kanan bawah:** jumlah sinyal per kelompok skor, dan berapa persen C2 akhirnya close searah reversal.
 - **Candle bayangan MTF:** setiap candle H6 (mode Daily) atau H1 (mode H4) digambar sebagai candle transparan besar (body + wick) di belakang candle kecil, bernomor, dengan tulisan "sweep" dan "PEMICU". Opsional candle bayangan HTF (Daily/H4). Garis putus-putus = awal candle HTF.
 - **Alert:** saat sinyal muncul, dan opsional saat sweep terjadi.
+- **Sinyal ENTRY (lebih awal dari sinyal reversal):**
+  1. Candle MTF (H6/H1) menyapu high C1 lalu close bearish kembali di bawahnya → **bias SELL**.
+  2. Di candle MTF berikutnya, candle kecil (M90/M30) menyapu high candle kecil sebelumnya.
+  3. Dalam maks 2 candle kecil, ada yang close bearish **di bawah open MTF** dan di bawah high yang disapu → **ENTRY**. SL di atas ujung sweep (+ buffer), target low C1, RR minimal bisa diatur. BUY kebalikannya.
+  Tabel kanan atas: hasil simulasi ENTRY (jumlah trade, % menang, total R; posisi ditutup saat candle HTF close).
