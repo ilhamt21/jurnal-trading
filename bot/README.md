@@ -109,3 +109,12 @@ File: `bot/tradingview/reversal_candle.pine`. Bisa dipakai di timeframe apa pun.
 - **Bedah timeframe kecil (otomatis):** urutan OHLC/OLHC C2, sub-candle tempat high/low terbentuk, dan apakah C1 "berakhir lemah".
 - **Tabel kanan bawah:** jumlah pembalikan per kekuatan dan seberapa sering C3 melanjutkan arahnya.
 - **Alert:** saat C2 close (sinyal final), dan opsional alert dini saat C2 masih berjalan.
+
+## Indikator reversal multi-timeframe
+
+File: `bot/tradingview/reversal_mtf.pine`. Pilihan rantai: **Daily → H6 → M90** atau **H4 → H1 → M30**. Pasang di chart M90 (atau M30), atau timeframe yang lebih kecil.
+
+- **Sinyal reversal bullish:** C2 menyapu low C1, lalu candle MTF (H6/H1) close kembali di atas low C1 **dan** di atas open C2. Bearish kebalikannya.
+- **Skor 0–10** dari ciri reversal: C1 berlawanan arah, close C1 dekat ekstrem, C1 berakhir lemah, C1 klimaks, low/high C1 = ekstrem 5 candle, sweep, sweep di awal candle, pemicu MTF, FVG di TF kecil, perubahan struktur TF kecil. Checklist muncul di label.
+- **Tabel kanan bawah:** jumlah sinyal per kelompok skor, dan berapa persen C2 akhirnya close searah reversal.
+- **Alert:** saat sinyal muncul, dan opsional saat sweep terjadi.

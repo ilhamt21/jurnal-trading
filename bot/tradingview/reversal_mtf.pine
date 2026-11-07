@@ -1,0 +1,221 @@
+//@version=5
+// Indikasi reversal multi-timeframe (jurnal-trading)
+// Rantai: Daily -> H6 -> M90  atau  H4 -> H1 -> M30
+// Pasang di chart timeframe kecil (M90 atau M30), atau lebih kecil lagi.
+//
+// Reversal BULLISH (C1 = candle HTF sebelumnya bearish, C2 = candle HTF sekarang):
+//   Sinyal = candle MTF close kembali DI ATAS low C1 (PDL) DAN di atas open C2,
+//            setelah C2 menyapu low C1.
+// Reversal BEARISH kebalikannya.
+//
+// Skor 0-10 (ciri reversal):
+//   1  C1 berlawanan arah (bearish untuk reversal bullish)
+//   2  C1 close dekat ekstrem (<= 20% dari low)          -> likuiditas fresh
+//   3  C1 berakhir lemah (MTF terakhir C1: ekstrem baru, body kecil / wick)
+//   4  C1 klimaks (range >= X kali rata-rata range HTF)
+//   5  Low C1 = low terendah 5 candle HTF (menyapu low beberapa candle)
+//   6  C2 menyapu low C1
+//   7  Sweep terjadi di MTF ke-1 atau ke-2 (awal candle)
+//   8  MTF close kembali di atas low C1 dan di atas open C2   (pemicu)
+//   9  Ada FVG bullish di TF kecil setelah sweep (displacement)
+//   10 TF kecil close di atas high candle yang membuat low sweep (struktur berubah)
+indicator("Indikasi Reversal MTF (jurnal-trading)", shorttitle="Reversal MTF", overlay=true, max_labels_count=500)
+
+// ---------- Pengaturan ----------
+mode      = input.string("Daily - H6 - M90", "Rantai timeframe", options=["Daily - H6 - M90", "H4 - H1 - M30"])
+showBull  = input.bool(true, "Reversal BULLISH")
+showBear  = input.bool(true, "Reversal BEARISH")
+minScore  = input.int(5, "Skor minimal untuk sinyal", minval=3, maxval=10)
+closeZone = input.float(20, "Ciri 2: C1 close dekat ekstrem (%)", minval=1, maxval=50)
+climaxK   = input.float(1.5, "Ciri 4: klimaks = range C1 >= X kali rata-rata", minval=1, step=0.1)
+showLvl   = input.bool(true, "Gambar high/low C1 dan open C2")
+showChk   = input.bool(true, "Tampilkan checklist di label")
+sweepAlrt = input.bool(false, "Alert juga saat sweep terjadi (sebelum pemicu)")
+
+isDaily = mode == "Daily - H6 - M90"
+htf = isDaily ? "D" : "240"
+mtf = isDaily ? "360" : "60"
+ltf = isDaily ? "90" : "30"
+
+if timeframe.in_seconds() > timeframe.in_seconds(ltf)
+    runtime.error("Pakai chart " + (isDaily ? "M90" : "M30") + " atau lebih kecil untuk rantai " + mode)
+
+sym = syminfo.tickerid
+// Candle HTF sebelumnya (C1) dan open HTF sekarang (C2), tanpa repaint
+[pO, pH, pL, pC] = request.security(sym, htf, [open[1], high[1], low[1], close[1]], lookahead=barmerge.lookahead_on)
+hO = request.security(sym, htf, open, lookahead=barmerge.lookahead_on)
+[avgR, low5, high5] = request.security(sym, htf, [ta.sma(high - low, 14)[2], ta.lowest(low, 5)[2], ta.highest(high, 5)[2]], lookahead=barmerge.lookahead_on)
+// Candle MTF terakhir yang sudah close
+[mO, mH, mL, mC] = request.security(sym, mtf, [open[1], high[1], low[1], close[1]], lookahead=barmerge.lookahead_on)
+
+newHTF = ta.change(time(htf)) != 0
+newMTF = ta.change(time(mtf)) != 0
+
+f_px(float v) =>
+    str.tostring(v, format.mintick)
+f_ck(bool b) =>
+    b ? "✓ " : "✗ "
+
+// ---------- Status per candle HTF ----------
+var int   mIdx    = 0        // nomor candle MTF yang sedang berjalan di dalam C2 (1..)
+var float curHi   = na
+var float curLo   = na
+// ciri C1 (dihitung saat candle HTF baru dimulai)
+var bool  c1WeakBear = false
+var bool  c1WeakBull = false
+// reversal bullish
+var bool  swL = false
+var int   swLIdx = 0
+var float swLBarHi = na
+var bool  fvgB = false
+var bool  chB = false
+var bool  doneB = false
+var int   sigBScore = -1
+// reversal bearish
+var bool  swH = false
+var int   swHIdx = 0
+var float swHBarLo = na
+var bool  fvgS = false
+var bool  chS = false
+var bool  doneS = false
+var int   sigSScore = -1
+
+// statistik: indeks 0 = skor <=5, 1 = 6-7, 2 = >=8 ; berhasil = C2 close searah reversal
+var nB = array.new_int(3, 0)
+var wB = array.new_int(3, 0)
+var nS = array.new_int(3, 0)
+var wS = array.new_int(3, 0)
+f_bucket(int sc) =>
+    sc >= 8 ? 2 : sc >= 6 ? 1 : 0
+
+if newHTF
+    // catat hasil C2 sebelumnya (yang baru saja close): pO/pC sekarang = C2 tadi
+    if sigBScore >= 0
+        int b = f_bucket(sigBScore)
+        array.set(nB, b, array.get(nB, b) + 1)
+        if pC > pO
+            array.set(wB, b, array.get(wB, b) + 1)
+    if sigSScore >= 0
+        int b = f_bucket(sigSScore)
+        array.set(nS, b, array.get(nS, b) + 1)
+        if pC < pO
+            array.set(wS, b, array.get(wS, b) + 1)
+    // MTF terakhir dari C1 = mO..mC (baru saja close bersamaan dengan C1)
+    float r = mH - mL
+    float bodyR = r > 0 ? math.abs(mC - mO) / r : 1
+    c1WeakBear := r > 0 and mL <= pL and (bodyR < 0.3 or (math.min(mO, mC) - mL) / r >= 0.4)
+    c1WeakBull := r > 0 and mH >= pH and (bodyR < 0.3 or (mH - math.max(mO, mC)) / r >= 0.4)
+    mIdx := 1
+    curHi := high
+    curLo := low
+    swL := false
+    swH := false
+    swLBarHi := na
+    swHBarLo := na
+    fvgB := false
+    fvgS := false
+    chB := false
+    chS := false
+    doneB := false
+    doneS := false
+    sigBScore := -1
+    sigSScore := -1
+else
+    if newMTF
+        mIdx += 1
+    curHi := math.max(curHi, high)
+    curLo := math.min(curLo, low)
+
+// ---------- Sweep & tanda di TF kecil ----------
+if showBull and not doneB and low < pL
+    if not swL
+        swL := true
+        swLIdx := mIdx
+        if sweepAlrt
+            alert("Sweep LOW C1 " + syminfo.ticker + " (" + mode + "): " + f_px(pL) + " - pantau reversal bullish", alert.freq_once_per_bar)
+    if low <= curLo
+        swLBarHi := high
+if showBear and not doneS and high > pH
+    if not swH
+        swH := true
+        swHIdx := mIdx
+        if sweepAlrt
+            alert("Sweep HIGH C1 " + syminfo.ticker + " (" + mode + "): " + f_px(pH) + " - pantau reversal bearish", alert.freq_once_per_bar)
+    if high >= curHi
+        swHBarLo := low
+if swL and low > high[2]
+    fvgB := true
+if swH and high < low[2]
+    fvgS := true
+if swL and not na(swLBarHi) and close > swLBarHi
+    chB := true
+if swH and not na(swHBarLo) and close < swHBarLo
+    chS := true
+
+// ---------- Pemicu: candle MTF close kembali ke dalam range dan melewati open C2 ----------
+pR = pH - pL
+c1ClosePct = pR > 0 ? (pC - pL) / pR * 100 : 50.0
+
+if newMTF and not newHTF and swL and not doneB and showBull and mC > pL and mC > hO
+    bool k1 = pC < pO
+    bool k2 = c1ClosePct <= closeZone
+    bool k3 = c1WeakBear
+    bool k4 = pR >= climaxK * avgR
+    bool k5 = pL < low5
+    bool k6 = true
+    bool k7 = swLIdx <= 2
+    bool k8 = true
+    bool k9 = fvgB
+    bool k10 = chB
+    int sc = (k1 ? 1 : 0) + (k2 ? 1 : 0) + (k3 ? 1 : 0) + (k4 ? 1 : 0) + (k5 ? 1 : 0) + (k6 ? 1 : 0) + (k7 ? 1 : 0) + (k8 ? 1 : 0) + (k9 ? 1 : 0) + (k10 ? 1 : 0)
+    doneB := true
+    if k1 and sc >= minScore
+        sigBScore := sc
+        string chk = showChk ? "\n" + f_ck(k1) + "C1 bearish\n" + f_ck(k2) + "C1 close " + str.tostring(c1ClosePct, "#") + "% (dekat low)\n" + f_ck(k3) + "C1 berakhir lemah\n" + f_ck(k4) + "C1 klimaks\n" + f_ck(k5) + "low C1 = low 5 candle\n" + f_ck(k6) + "sweep low C1 " + f_px(pL) + "\n" + f_ck(k7) + "sweep di MTF ke-" + str.tostring(swLIdx) + "\n" + f_ck(k8) + "MTF close > low C1 & > open\n" + f_ck(k9) + "FVG bullish TF kecil\n" + f_ck(k10) + "struktur TF kecil berubah" : ""
+        string txt = "REVERSAL BULLISH  skor " + str.tostring(sc) + "/10\n" + mode + " | MTF ke-" + str.tostring(mIdx - 1) + " close " + f_px(mC) + chk
+        label.new(bar_index, low, txt, style=label.style_label_up, color=sc >= 8 ? color.green : sc >= 6 ? color.new(color.green, 30) : color.new(color.green, 55), textcolor=color.white, size=size.small, textalign=text.align_left)
+        alert(syminfo.ticker + " REVERSAL BULLISH skor " + str.tostring(sc) + "/10 (" + mode + "): sweep low C1 " + f_px(pL) + ", MTF close " + f_px(mC) + " > open " + f_px(hO), alert.freq_once_per_bar)
+
+if newMTF and not newHTF and swH and not doneS and showBear and mC < pH and mC < hO
+    bool k1 = pC > pO
+    bool k2 = c1ClosePct >= 100 - closeZone
+    bool k3 = c1WeakBull
+    bool k4 = pR >= climaxK * avgR
+    bool k5 = pH > high5
+    bool k6 = true
+    bool k7 = swHIdx <= 2
+    bool k8 = true
+    bool k9 = fvgS
+    bool k10 = chS
+    int sc = (k1 ? 1 : 0) + (k2 ? 1 : 0) + (k3 ? 1 : 0) + (k4 ? 1 : 0) + (k5 ? 1 : 0) + (k6 ? 1 : 0) + (k7 ? 1 : 0) + (k8 ? 1 : 0) + (k9 ? 1 : 0) + (k10 ? 1 : 0)
+    doneS := true
+    if k1 and sc >= minScore
+        sigSScore := sc
+        string chk = showChk ? "\n" + f_ck(k1) + "C1 bullish\n" + f_ck(k2) + "C1 close " + str.tostring(c1ClosePct, "#") + "% (dekat high)\n" + f_ck(k3) + "C1 berakhir lemah\n" + f_ck(k4) + "C1 klimaks\n" + f_ck(k5) + "high C1 = high 5 candle\n" + f_ck(k6) + "sweep high C1 " + f_px(pH) + "\n" + f_ck(k7) + "sweep di MTF ke-" + str.tostring(swHIdx) + "\n" + f_ck(k8) + "MTF close < high C1 & < open\n" + f_ck(k9) + "FVG bearish TF kecil\n" + f_ck(k10) + "struktur TF kecil berubah" : ""
+        string txt = "REVERSAL BEARISH  skor " + str.tostring(sc) + "/10\n" + mode + " | MTF ke-" + str.tostring(mIdx - 1) + " close " + f_px(mC) + chk
+        label.new(bar_index, high, txt, style=label.style_label_down, color=sc >= 8 ? color.red : sc >= 6 ? color.new(color.red, 30) : color.new(color.red, 55), textcolor=color.white, size=size.small, textalign=text.align_left)
+        alert(syminfo.ticker + " REVERSAL BEARISH skor " + str.tostring(sc) + "/10 (" + mode + "): sweep high C1 " + f_px(pH) + ", MTF close " + f_px(mC) + " < open " + f_px(hO), alert.freq_once_per_bar)
+
+// ---------- Gambar ----------
+plot(showLvl ? pH : na, "High C1", color=color.new(color.red, 30), style=plot.style_stepline)
+plot(showLvl ? pL : na, "Low C1", color=color.new(color.green, 30), style=plot.style_stepline)
+plot(showLvl ? hO : na, "Open C2", color=color.new(color.blue, 30), style=plot.style_stepline)
+
+// ---------- Tabel statistik ----------
+var table ts = table.new(position.bottom_right, 3, 8, bgcolor=color.new(color.black, 15), border_width=1)
+if barstate.islast
+    table.clear(ts, 0, 0, 2, 7)
+    table.cell(ts, 0, 0, mode, text_color=color.yellow)
+    table.cell(ts, 1, 0, "Sinyal", text_color=color.yellow)
+    table.cell(ts, 2, 0, "C2 close searah", text_color=color.yellow)
+    nm = array.from("skor <=5", "skor 6-7", "skor >=8")
+    for k = 0 to 2
+        int a = array.get(nB, k)
+        int b = array.get(nS, k)
+        table.cell(ts, 0, k + 1, "Bullish " + array.get(nm, k), text_color=color.lime)
+        table.cell(ts, 1, k + 1, str.tostring(a), text_color=color.white)
+        table.cell(ts, 2, k + 1, a > 0 ? str.tostring(100.0 * array.get(wB, k) / a, "#") + "%" : "-", text_color=color.white)
+        table.cell(ts, 0, k + 4, "Bearish " + array.get(nm, k), text_color=color.red)
+        table.cell(ts, 1, k + 4, str.tostring(b), text_color=color.white)
+        table.cell(ts, 2, k + 4, b > 0 ? str.tostring(100.0 * array.get(wS, k) / b, "#") + "%" : "-", text_color=color.white)
+    table.cell(ts, 0, 7, "Chart harus " + (isDaily ? "M90" : "M30") + " atau lebih kecil", text_color=color.gray)
