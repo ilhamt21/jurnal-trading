@@ -131,7 +131,7 @@ File: `bot/tradingview/reversal_mtf.pine`. Pilihan rantai (1 HTF = 4 MTF, 1 MTF 
 File: `bot/tradingview/htf_candles.pine`. Pasang di chart **M15**. Candle HTF dibentuk dari candle chart sendiri, jadi H6 dan M90 tetap terlihat walaupun timeframe itu tidak dibuka di chart.
 
 - **Rantai:** `Daily - H6 - M90` atau `H4 - H1 - M15` (kelompok M15 tidak ditampilkan karena sama dengan chart).
-- **Panel kanan** (M90 → H6 → Daily): candle per tingkat (tampil ya/tidak, jumlah 1–10, jam NY). Semua garis horizontal (open, C1 / H4 05:00, likuiditas, 4 M90) digambar di panel ini, mulai dari candle-nya sampai ujung panel; riwayat hari sebelumnya tetap di chart.
+- **Panel kanan** (M90 → H6 → Daily): candle per tingkat (tampil ya/tidak, jumlah 1–10, jam NY). Garis tiap tingkat hanya di dalam kelompoknya sendiri (open & high/low M90 di kelompok M90, open H6 di kelompok H6, open Daily & C1 di kelompok Daily); likuiditas berupa garis pendek di kanan panel; riwayat hari sebelumnya tetap di chart.
 - **Garis open** per tingkat (style, tebal, warna): open Daily/H4, semua open H6/H1 di dalam HTF yang berjalan, open M90.
 - **Rantai Daily:** garis high/low C1 sampai Daily close, high/low Daily 3 hari ke belakang, garis high/low 4 M90 terakhir yang sudah close (bergulir).
 - **Rantai H4:** garis high/low H4 05:00 sampai H4 09:00 close (13:00 NY), PDH/PDL dan sesi Asia 20–00, London 02–05, NY AM 07–11, NY PM 13:30–16 (3 hari ke belakang). Level yang sudah tersapu: samar / sama / disembunyikan.
