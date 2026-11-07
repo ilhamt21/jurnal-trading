@@ -112,7 +112,7 @@ File: `bot/tradingview/reversal_candle.pine`. Bisa dipakai di timeframe apa pun.
 
 ## Indikator reversal multi-timeframe
 
-File: `bot/tradingview/reversal_mtf.pine`. Pilihan rantai: **Daily → H6 → M90** atau **H4 → H1 → M30**. Pasang di chart M90 (atau M30), atau timeframe yang lebih kecil.
+File: `bot/tradingview/reversal_mtf.pine`. Pilihan rantai (1 HTF = 4 MTF, 1 MTF = 4 LTF): **Daily → H6 → M90** atau **H4 → H1 → M15**. Pasang di chart M90 (atau M15), atau timeframe yang lebih kecil.
 
 - **Sinyal reversal bullish:** C2 menyapu low C1, lalu candle MTF (H6/H1) close kembali di atas low C1 **dan** di atas open C2. Bearish kebalikannya.
 - **Skor 0–10** dari ciri reversal: C1 berlawanan arah, close C1 dekat ekstrem, C1 berakhir lemah, C1 klimaks, low/high C1 = ekstrem 5 candle, sweep, sweep di awal candle, pemicu MTF, FVG di TF kecil, perubahan struktur TF kecil. Checklist muncul di label.
@@ -121,6 +121,6 @@ File: `bot/tradingview/reversal_mtf.pine`. Pilihan rantai: **Daily → H6 → M9
 - **Alert:** saat sinyal muncul, dan opsional saat sweep terjadi.
 - **Sinyal ENTRY (lebih awal dari sinyal reversal):**
   1. Candle MTF (H6/H1) menyapu high C1 lalu close bearish kembali di bawahnya → **bias SELL**.
-  2. Di candle MTF berikutnya, candle kecil (M90/M30) menyapu high candle kecil sebelumnya.
+  2. Di candle MTF berikutnya, candle kecil (M90/M15) menyapu high candle kecil sebelumnya.
   3. Dalam maks 2 candle kecil, ada yang close bearish **di bawah open MTF** dan di bawah high yang disapu → **ENTRY**. SL di atas ujung sweep (+ buffer), target low C1, RR minimal bisa diatur. BUY kebalikannya.
   Tabel kanan atas: hasil simulasi ENTRY (jumlah trade, % menang, total R; posisi ditutup saat candle HTF close).

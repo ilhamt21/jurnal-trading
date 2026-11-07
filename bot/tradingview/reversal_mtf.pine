@@ -1,7 +1,7 @@
 //@version=5
 // Indikasi reversal multi-timeframe (jurnal-trading)
-// Rantai: Daily -> H6 -> M90  atau  H4 -> H1 -> M30
-// Pasang di chart timeframe kecil (M90 atau M30), atau lebih kecil lagi.
+// Rantai (1 HTF = 4 MTF, 1 MTF = 4 LTF): Daily -> H6 -> M90  atau  H4 -> H1 -> M15
+// Pasang di chart timeframe kecil (M90 atau M15), atau lebih kecil lagi.
 //
 // Reversal BULLISH (C1 = candle HTF sebelumnya bearish, C2 = candle HTF sekarang):
 //   Sinyal = candle MTF close kembali DI ATAS low C1 (PDL) DAN di atas open C2,
@@ -22,7 +22,7 @@
 indicator("Indikasi Reversal MTF (jurnal-trading)", shorttitle="Reversal MTF", overlay=true, max_labels_count=500, max_boxes_count=500, max_lines_count=500)
 
 // ---------- Pengaturan ----------
-mode      = input.string("Daily - H6 - M90", "Rantai timeframe", options=["Daily - H6 - M90", "H4 - H1 - M30"])
+mode      = input.string("Daily - H6 - M90", "Rantai timeframe", options=["Daily - H6 - M90", "H4 - H1 - M15"])
 showBull  = input.bool(true, "Reversal BULLISH")
 showBear  = input.bool(true, "Reversal BEARISH")
 minScore  = input.int(5, "Skor minimal untuk sinyal", minval=3, maxval=10)
@@ -44,11 +44,11 @@ pip       = pipIn > 0 ? pipIn : (syminfo.currency == "JPY" ? 0.01 : 0.0001)
 isDaily = mode == "Daily - H6 - M90"
 htf = isDaily ? "D" : "240"
 mtf = isDaily ? "360" : "60"
-ltf = isDaily ? "90" : "30"
+ltf = isDaily ? "90" : "15"
 mtfName = isDaily ? "H6" : "H1"
 
 if timeframe.in_seconds() > timeframe.in_seconds(ltf)
-    runtime.error("Pakai chart " + (isDaily ? "M90" : "M30") + " atau lebih kecil untuk rantai " + mode)
+    runtime.error("Pakai chart " + (isDaily ? "M90" : "M15") + " atau lebih kecil untuk rantai " + mode)
 
 sym = syminfo.tickerid
 // Candle HTF sebelumnya (C1) dan open HTF sekarang (C2), tanpa repaint
@@ -60,7 +60,7 @@ hO = request.security(sym, htf, open, lookahead=barmerge.lookahead_on)
 
 newHTF = ta.change(time(htf)) != 0
 newMTF = ta.change(time(mtf)) != 0
-// Candle kecil (M90/M30) terakhir yang sudah close + candle sebelumnya, dan open MTF yang sedang berjalan
+// Candle kecil (M90/M15) terakhir yang sudah close + candle sebelumnya, dan open MTF yang sedang berjalan
 [lO, lH, lL, lC, lHp, lLp] = request.security(sym, ltf, [open[1], high[1], low[1], close[1], high[2], low[2]], lookahead=barmerge.lookahead_on)
 newLTF   = ta.change(time(ltf)) != 0
 mOpenNow = request.security(sym, mtf, open, lookahead=barmerge.lookahead_on)
