@@ -123,4 +123,5 @@ File: `bot/tradingview/reversal_mtf.pine`. Pilihan rantai (1 HTF = 4 MTF, 1 MTF 
   1. Candle MTF (H6/H1) menyapu high C1 lalu close bearish kembali di bawahnya → **bias SELL**.
   2. Di candle MTF berikutnya, candle kecil (M90/M15) menyapu high candle kecil sebelumnya.
   3. Dalam maks 2 candle kecil, ada yang close bearish **di bawah open MTF** dan di bawah high yang disapu → **ENTRY**. SL di atas ujung sweep (+ buffer), target low C1, RR minimal bisa diatur. BUY kebalikannya.
+  Semua sinyal dihitung **di candle yang baru close** (contoh: M90 06:30 close jam 08:00 → label ENTRY langsung di candle 06:30), tidak menunggu candle berikutnya.
   Tabel kanan atas: hasil simulasi ENTRY (jumlah trade, % menang, total R; posisi ditutup saat candle HTF close).

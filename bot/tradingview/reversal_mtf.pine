@@ -57,14 +57,18 @@ sym = syminfo.tickerid
 [pO, pH, pL, pC] = request.security(sym, htf, [open[1], high[1], low[1], close[1]], lookahead=barmerge.lookahead_on)
 hO = request.security(sym, htf, open, lookahead=barmerge.lookahead_on)
 [avgR, low5, high5] = request.security(sym, htf, [ta.sma(high - low, 14)[2], ta.lowest(low, 5)[2], ta.highest(high, 5)[2]], lookahead=barmerge.lookahead_on)
-// Candle MTF terakhir yang sudah close
-[mO, mH, mL, mC] = request.security(sym, mtf, [open[1], high[1], low[1], close[1]], lookahead=barmerge.lookahead_on)
+// Semua keputusan diambil di BAR TERAKHIR sebuah candle MTF/LTF (saat candle itu close),
+// bukan menunggu candle berikutnya buka. Contoh: M90 06:30 close jam 08:00 -> sinyal langsung di candle 06:30.
+// Candle MTF yang sedang ditutup (nilai final di bar terakhirnya)
+[mO, mH, mL, mC] = request.security(sym, mtf, [open, high, low, close])
 
 newHTF = ta.change(time(htf)) != 0
 newMTF = ta.change(time(mtf)) != 0
-// Candle kecil (M90/M15) terakhir yang sudah close + candle sebelumnya, dan open MTF yang sedang berjalan
-[lO, lH, lL, lC, lHp, lLp] = request.security(sym, ltf, [open[1], high[1], low[1], close[1], high[2], low[2]], lookahead=barmerge.lookahead_on)
-newLTF   = ta.change(time(ltf)) != 0
+mtfEnd = time_close == time_close(mtf)     // bar ini menutup candle MTF
+ltfEnd = time_close == time_close(ltf)     // bar ini menutup candle kecil
+htfEnd = time_close == time_close(htf)     // bar ini menutup candle HTF
+// Candle kecil (M90/M15) yang sedang ditutup + candle kecil sebelumnya, dan open MTF yang sedang berjalan
+[lO, lH, lL, lC, lHp, lLp] = request.security(sym, ltf, [open, high, low, close, high[1], low[1]])
 mOpenNow = request.security(sym, mtf, open, lookahead=barmerge.lookahead_on)
 
 f_px(float v) =>
@@ -79,6 +83,8 @@ var float curLo   = na
 // ciri C1 (dihitung saat candle HTF baru dimulai)
 var bool  c1WeakBear = false
 var bool  c1WeakBull = false
+var bool  nxWeakBear = false   // dihitung saat candle HTF close, dipakai di candle HTF berikutnya
+var bool  nxWeakBull = false
 // reversal bullish
 var bool  swL = false
 var int   swLIdx = 0
@@ -113,31 +119,6 @@ halfBar = timeframe.in_seconds() * 500    // setengah lebar candle chart (ms)
 var box   lastBox   = na     // body candle bayangan MTF terakhir
 var line  lastWick  = na     // wick candle bayangan MTF terakhir
 var label lastTag   = na     // tulisan di atas candle bayangan MTF terakhir
-int prevIdx = mIdx            // nomor MTF yang baru saja selesai (kalau newMTF)
-
-// t1 = waktu candle kecil pertama, t2 = waktu candle besar berikutnya dimulai.
-// Tepi digeser setengah candle supaya pas di tepi candle kecil, wick tepat di tengah.
-// Mode Waktu: t1/t2 = waktu (ms), tepi digeser setengah candle. Mode Bar: b1/b2 = bar_index.
-f_ghost(int b1, int b2, int t1, int t2, float o, float h, float l, float c, int transp) =>
-    bool  up  = c >= o
-    color col = up ? color.green : color.red
-    int   xl  = useTime ? t1 - halfBar : b1
-    int   xr  = useTime ? t2 - halfBar : b2
-    int   xm  = useTime ? math.round((xl + xr) / 2) : math.round((b1 + b2) / 2)
-    string xlc = useTime ? xloc.bar_time : xloc.bar_index
-    line  w   = line.new(xm, h, xm, l, xloc=xlc, color=color.new(col, transp), width=3)
-    box   b   = box.new(xl, math.max(o, c), xr, math.min(o, c), xloc=xlc, border_color=color.new(col, transp), border_width=2, bgcolor=color.new(col, math.min(95, transp + 35)))
-    [b, w, xm]
-
-if showMtf and newMTF and not na(mStartT)
-    bool   hadSw = (swL and swLIdx == prevIdx) or (swH and swHIdx == prevIdx)
-    string tag   = mtfName + "-" + str.tostring(prevIdx) + (hadSw ? " sweep" : "")
-    [gb, gw, gx] = f_ghost(mStartBar, bar_index - 1, mStartT, time, mO, mH, mL, mC, 45)
-    lastBox  := gb
-    lastWick := gw
-    lastTag  := label.new(gx, mH, tag, xloc=useTime ? xloc.bar_time : xloc.bar_index, style=label.style_label_down, color=color.new(color.white, 100), textcolor=color.gray, size=size.small)
-if showHtf and newHTF and not na(hStartT)
-    [hb, hw, hx] = f_ghost(hStartBar, bar_index - 1, hStartT, time, pO, pH, pL, pC, 75)
 if showMtf and newHTF
     if useTime
         line.new(time - halfBar, low, time - halfBar, high, xloc=xloc.bar_time, extend=extend.both, color=color.new(color.gray, 55), style=line.style_dashed)
@@ -162,11 +143,9 @@ if newHTF
         array.set(nS, b, array.get(nS, b) + 1)
         if pC < pO
             array.set(wS, b, array.get(wS, b) + 1)
-    // MTF terakhir dari C1 = mO..mC (baru saja close bersamaan dengan C1)
-    float r = mH - mL
-    float bodyR = r > 0 ? math.abs(mC - mO) / r : 1
-    c1WeakBear := r > 0 and mL <= pL and (bodyR < 0.3 or (math.min(mO, mC) - mL) / r >= 0.4)
-    c1WeakBull := r > 0 and mH >= pH and (bodyR < 0.3 or (mH - math.max(mO, mC)) / r >= 0.4)
+    // MTF terakhir dari C1 (dihitung saat C1 close)
+    c1WeakBear := nxWeakBear
+    c1WeakBull := nxWeakBull
     mIdx := 1
     curHi := high
     curLo := low
@@ -214,11 +193,40 @@ if swL and not na(swLBarHi) and close > swLBarHi
 if swH and not na(swHBarLo) and close < swHBarLo
     chS := true
 
+// ---------- Candle bayangan MTF: digambar di bar terakhir candle MTF ----------
+// Mode Waktu: tepi digeser setengah candle supaya pas di tepi candle kecil. Mode Bar: pakai bar_index.
+f_ghost(int b1, int b2, int t1, int t2, float o, float h, float l, float c, int transp) =>
+    bool  up  = c >= o
+    color col = up ? color.green : color.red
+    int   xl  = useTime ? t1 - halfBar : b1
+    int   xr  = useTime ? t2 - halfBar : b2
+    int   xm  = useTime ? math.round((xl + xr) / 2) : math.round((b1 + b2) / 2)
+    string xlc = useTime ? xloc.bar_time : xloc.bar_index
+    line  w   = line.new(xm, h, xm, l, xloc=xlc, color=color.new(col, transp), width=3)
+    box   b   = box.new(xl, math.max(o, c), xr, math.min(o, c), xloc=xlc, border_color=color.new(col, transp), border_width=2, bgcolor=color.new(col, math.min(95, transp + 35)))
+    [b, w, xm]
+
+if showMtf and mtfEnd and not na(mStartT)
+    bool   hadSw = (swL and swLIdx == mIdx) or (swH and swHIdx == mIdx)
+    string tag   = mtfName + "-" + str.tostring(mIdx) + (hadSw ? " sweep" : "")
+    [gb, gw, gx] = f_ghost(mStartBar, bar_index, mStartT, time_close, mO, mH, mL, mC, 45)
+    lastBox  := gb
+    lastWick := gw
+    lastTag  := label.new(gx, mH, tag, xloc=useTime ? xloc.bar_time : xloc.bar_index, style=label.style_label_down, color=color.new(color.white, 100), textcolor=color.gray, size=size.small)
+if showHtf and htfEnd and not na(hStartT)
+    [hb, hw, hx] = f_ghost(hStartBar, bar_index, hStartT, time_close, hO, curHi, curLo, close, 75)
+// ciri "C1 berakhir lemah" untuk candle HTF berikutnya: MTF terakhir membuat ekstrem baru dengan body kecil / wick
+if htfEnd
+    float r = mH - mL
+    float bodyR = r > 0 ? math.abs(mC - mO) / r : 1
+    nxWeakBear := r > 0 and mL <= curLo and (bodyR < 0.3 or (math.min(mO, mC) - mL) / r >= 0.4)
+    nxWeakBull := r > 0 and mH >= curHi and (bodyR < 0.3 or (mH - math.max(mO, mC)) / r >= 0.4)
+
 // ---------- Pemicu: candle MTF close kembali ke dalam range dan melewati open C2 ----------
 pR = pH - pL
 c1ClosePct = pR > 0 ? (pC - pL) / pR * 100 : 50.0
 
-if newMTF and not newHTF and swL and not doneB and showBull and mC > pL and mC > hO
+if mtfEnd and swL and not doneB and showBull and mC > pL and mC > hO
     bool k1 = pC < pO
     bool k2 = c1ClosePct <= closeZone
     bool k3 = c1WeakBear
@@ -234,17 +242,17 @@ if newMTF and not newHTF and swL and not doneB and showBull and mC > pL and mC >
     if k1 and sc >= minScore
         sigBScore := sc
         string chk = "\n" + f_ck(k1) + "C1 bearish\n" + f_ck(k2) + "C1 close " + str.tostring(c1ClosePct, "#") + "% (dekat low)\n" + f_ck(k3) + "C1 berakhir lemah\n" + f_ck(k4) + "C1 klimaks\n" + f_ck(k5) + "low C1 = low 5 candle\n" + f_ck(k6) + "sweep low C1 " + f_px(pL) + "\n" + f_ck(k7) + "sweep di MTF ke-" + str.tostring(swLIdx) + "\n" + f_ck(k8) + "MTF close > low C1 & > open\n" + f_ck(k9) + "FVG bullish TF kecil\n" + f_ck(k10) + "struktur TF kecil berubah"
-        string tip = "REVERSAL BULLISH  skor " + str.tostring(sc) + "/10\n" + mode + " | MTF ke-" + str.tostring(mIdx - 1) + " close " + f_px(mC) + chk
+        string tip = "REVERSAL BULLISH  skor " + str.tostring(sc) + "/10\n" + mode + " | MTF ke-" + str.tostring(mIdx) + " close " + f_px(mC) + chk
         if showMtf and not na(lastBox)
-            label.set_text(lastTag, mtfName + "-" + str.tostring(prevIdx) + (swLIdx == prevIdx ? " sweep +" : "") + " PEMICU BUY")
+            label.set_text(lastTag, mtfName + "-" + str.tostring(mIdx) + (swLIdx == mIdx ? " sweep +" : "") + " PEMICU BUY")
             label.set_textcolor(lastTag, color.green)
             box.set_border_color(lastBox, color.green)
             box.set_border_width(lastBox, 2)
             line.set_color(lastWick, color.green)
-        label.new(bar_index - 1, mL, "BUY " + str.tostring(sc), style=label.style_label_up, color=sc >= 8 ? color.green : sc >= 6 ? color.new(color.green, 30) : color.new(color.green, 55), textcolor=color.white, size=size.small, tooltip=tip)
-        alert(syminfo.ticker + " REVERSAL BULLISH skor " + str.tostring(sc) + "/10 (" + mode + "): sweep low C1 " + f_px(pL) + ", MTF close " + f_px(mC) + " > open " + f_px(hO), alert.freq_once_per_bar)
+        label.new(bar_index, mL, "BUY " + str.tostring(sc), style=label.style_label_up, color=sc >= 8 ? color.green : sc >= 6 ? color.new(color.green, 30) : color.new(color.green, 55), textcolor=color.white, size=size.small, tooltip=tip)
+        alert(syminfo.ticker + " REVERSAL BULLISH skor " + str.tostring(sc) + "/10 (" + mode + "): sweep low C1 " + f_px(pL) + ", MTF close " + f_px(mC) + " > open " + f_px(hO), alert.freq_once_per_bar_close)
 
-if newMTF and not newHTF and swH and not doneS and showBear and mC < pH and mC < hO
+if mtfEnd and swH and not doneS and showBear and mC < pH and mC < hO
     bool k1 = pC > pO
     bool k2 = c1ClosePct >= 100 - closeZone
     bool k3 = c1WeakBull
@@ -260,15 +268,15 @@ if newMTF and not newHTF and swH and not doneS and showBear and mC < pH and mC <
     if k1 and sc >= minScore
         sigSScore := sc
         string chk = "\n" + f_ck(k1) + "C1 bullish\n" + f_ck(k2) + "C1 close " + str.tostring(c1ClosePct, "#") + "% (dekat high)\n" + f_ck(k3) + "C1 berakhir lemah\n" + f_ck(k4) + "C1 klimaks\n" + f_ck(k5) + "high C1 = high 5 candle\n" + f_ck(k6) + "sweep high C1 " + f_px(pH) + "\n" + f_ck(k7) + "sweep di MTF ke-" + str.tostring(swHIdx) + "\n" + f_ck(k8) + "MTF close < high C1 & < open\n" + f_ck(k9) + "FVG bearish TF kecil\n" + f_ck(k10) + "struktur TF kecil berubah"
-        string tip = "REVERSAL BEARISH  skor " + str.tostring(sc) + "/10\n" + mode + " | MTF ke-" + str.tostring(mIdx - 1) + " close " + f_px(mC) + chk
+        string tip = "REVERSAL BEARISH  skor " + str.tostring(sc) + "/10\n" + mode + " | MTF ke-" + str.tostring(mIdx) + " close " + f_px(mC) + chk
         if showMtf and not na(lastBox)
-            label.set_text(lastTag, mtfName + "-" + str.tostring(prevIdx) + (swHIdx == prevIdx ? " sweep +" : "") + " PEMICU SELL")
+            label.set_text(lastTag, mtfName + "-" + str.tostring(mIdx) + (swHIdx == mIdx ? " sweep +" : "") + " PEMICU SELL")
             label.set_textcolor(lastTag, color.red)
             box.set_border_color(lastBox, color.red)
             box.set_border_width(lastBox, 2)
             line.set_color(lastWick, color.red)
-        label.new(bar_index - 1, mH, "SELL " + str.tostring(sc), style=label.style_label_down, color=sc >= 8 ? color.red : sc >= 6 ? color.new(color.red, 30) : color.new(color.red, 55), textcolor=color.white, size=size.small, tooltip=tip)
-        alert(syminfo.ticker + " REVERSAL BEARISH skor " + str.tostring(sc) + "/10 (" + mode + "): sweep high C1 " + f_px(pH) + ", MTF close " + f_px(mC) + " < open " + f_px(hO), alert.freq_once_per_bar)
+        label.new(bar_index, mH, "SELL " + str.tostring(sc), style=label.style_label_down, color=sc >= 8 ? color.red : sc >= 6 ? color.new(color.red, 30) : color.new(color.red, 55), textcolor=color.white, size=size.small, tooltip=tip)
+        alert(syminfo.ticker + " REVERSAL BEARISH skor " + str.tostring(sc) + "/10 (" + mode + "): sweep high C1 " + f_px(pH) + ", MTF close " + f_px(mC) + " < open " + f_px(hO), alert.freq_once_per_bar_close)
 
 // ---------- ENTRY: bias dari MTF, entry dari sweep candle kecil di MTF berikutnya ----------
 // SELL: (1) candle MTF menyapu high C1 lalu close bearish kembali di bawahnya = BIAS
@@ -330,14 +338,14 @@ if newHTF
     cntB := -1
 else if useEntry
     // (1) bias dari candle MTF yang baru close
-    if newMTF
+    if mtfEnd
         if not biasS and mH > pH and mC < pH and mC < mO
             biasS := true
-            biasSIdx := prevIdx
+            biasSIdx := mIdx
             biasSTop := curHi
         if not biasB and mL < pL and mC > pL and mC > mO
             biasB := true
-            biasBIdx := prevIdx
+            biasBIdx := mIdx
             biasBBot := curLo
     // bias batal kalau harga menembus ujung sweep MTF
     if biasS and close > biasSTop
@@ -345,9 +353,9 @@ else if useEntry
     if biasB and close < biasBBot
         biasB := false
     // (2)+(3) sweep candle kecil dan close konfirmasi di MTF berikutnya
-    if newLTF
-        int   compIdx = newMTF ? prevIdx : mIdx
-        float mOpenC  = newMTF ? mO : mOpenNow
+    if ltfEnd
+        int   compIdx = mIdx
+        float mOpenC  = mOpenNow
         float buf     = eBufPips * pip
         if biasS and not entS and compIdx > biasSIdx
             if lH > lHp
@@ -373,10 +381,10 @@ else if useEntry
                         tR := r
                         tBar := bar_index
                     string tx = "ENTRY SELL\nE " + f_px(e) + "  SL " + f_px(sl) + "\nTarget " + f_px(pL) + " (" + str.tostring(rr, "#.#") + "R)"
-                    label.new(bar_index - 1, lH, tx, style=label.style_label_down, color=color.new(color.maroon, 0), textcolor=color.white, size=size.small)
-                    box.new(bar_index, sl, bar_index + 8, e, border_color=color.new(color.red, 60), bgcolor=color.new(color.red, 85))
-                    box.new(bar_index, e, bar_index + 8, pL, border_color=color.new(color.teal, 60), bgcolor=color.new(color.teal, 85))
-                    alert(syminfo.ticker + " ENTRY SELL (" + mode + "): entry " + f_px(e) + ", SL " + f_px(sl) + ", target " + f_px(pL) + " (" + str.tostring(rr, "#.#") + "R)", alert.freq_once_per_bar)
+                    label.new(bar_index, lH, tx, style=label.style_label_down, color=color.new(color.maroon, 0), textcolor=color.white, size=size.small)
+                    box.new(bar_index + 1, sl, bar_index + 9, e, border_color=color.new(color.red, 60), bgcolor=color.new(color.red, 85))
+                    box.new(bar_index + 1, e, bar_index + 9, pL, border_color=color.new(color.teal, 60), bgcolor=color.new(color.teal, 85))
+                    alert(syminfo.ticker + " ENTRY SELL (" + mode + "): entry " + f_px(e) + ", SL " + f_px(sl) + ", target " + f_px(pL) + " (" + str.tostring(rr, "#.#") + "R)", alert.freq_once_per_bar_close)
                 cntS := -1
             if cntS >= eWait
                 cntS := -1
@@ -404,10 +412,10 @@ else if useEntry
                         tR := r
                         tBar := bar_index
                     string tx = "ENTRY BUY\nE " + f_px(e) + "  SL " + f_px(sl) + "\nTarget " + f_px(pH) + " (" + str.tostring(rr, "#.#") + "R)"
-                    label.new(bar_index - 1, lL, tx, style=label.style_label_up, color=color.new(color.teal, 0), textcolor=color.white, size=size.small)
-                    box.new(bar_index, e, bar_index + 8, sl, border_color=color.new(color.red, 60), bgcolor=color.new(color.red, 85))
-                    box.new(bar_index, pH, bar_index + 8, e, border_color=color.new(color.teal, 60), bgcolor=color.new(color.teal, 85))
-                    alert(syminfo.ticker + " ENTRY BUY (" + mode + "): entry " + f_px(e) + ", SL " + f_px(sl) + ", target " + f_px(pH) + " (" + str.tostring(rr, "#.#") + "R)", alert.freq_once_per_bar)
+                    label.new(bar_index, lL, tx, style=label.style_label_up, color=color.new(color.teal, 0), textcolor=color.white, size=size.small)
+                    box.new(bar_index + 1, e, bar_index + 9, sl, border_color=color.new(color.red, 60), bgcolor=color.new(color.red, 85))
+                    box.new(bar_index + 1, pH, bar_index + 9, e, border_color=color.new(color.teal, 60), bgcolor=color.new(color.teal, 85))
+                    alert(syminfo.ticker + " ENTRY BUY (" + mode + "): entry " + f_px(e) + ", SL " + f_px(sl) + ", target " + f_px(pH) + " (" + str.tostring(rr, "#.#") + "R)", alert.freq_once_per_bar_close)
                 cntB := -1
             if cntB >= eWait
                 cntB := -1
