@@ -67,6 +67,14 @@ qColL  = input.color(color.new(color.teal, 0), "Low", group=gQ, inline="qc")
 qLen   = input.int(6, "Panjang garis likuiditas (bar, di kanan panel)", minval=2, maxval=30, group=gQ)
 qSwept = input.string("Tetap, tapi samar", "Level yang sudah tersapu", options=["Tetap, tapi samar", "Tetap, sama", "Sembunyikan"], group=gQ)
 
+gP = "Garis high/low 1 candle terakhir yang sudah close"
+pMtf   = input.bool(true, "Di kelompok H6 / H1", group=gP)
+pLtf   = input.bool(true, "Di kelompok M90", group=gP)
+pSty   = input.string("Putus-putus", "Style", options=["Solid", "Putus-putus", "Titik-titik"], group=gP, inline="p")
+pW     = input.int(1, "Tebal", minval=1, maxval=4, group=gP, inline="p")
+pColH  = input.color(color.new(color.red, 0), "High", group=gP, inline="pc")
+pColL  = input.color(color.new(color.green, 0), "Low", group=gP, inline="pc")
+
 gF = "Garis high/low 4 M90 terakhir (rantai Daily)"
 fShow  = input.bool(false, "Tampilkan (4 M90 terakhir yang sudah close, bergulir)", group=gF)
 fSty   = input.string("Titik-titik", "Style", options=["Solid", "Putus-putus", "Titik-titik"], group=gF, inline="f")
@@ -393,6 +401,18 @@ if barstate.islast
                 col := v.sw and qSwept == "Tetap, tapi samar" ? color.new(col, 75) : col
                 f_ln(qS0, v.p, qE0, v.p, col, qSty, qW)
                 f_lbl(qE0, v.p, v.nm + " " + str.format_time(v.t, "d/M", TZ) + (v.sw ? " x" : ""), col, label.style_label_left)
+
+    // ---- High/low 1 candle terakhir yang sudah close (H6/H1 dan M90), dari candle itu sampai ujung kelompoknya ----
+    if pMtf and ok2 and sz2 >= 2
+        Cdl k = array.get(a2, sz2 - 2)
+        int xs = f_xOf(xs2, sz2 - 2, s2)
+        f_ln(xs, k.h, e2, k.h, pColH, pSty, pW)
+        f_ln(xs, k.l, e2, k.l, pColL, pSty, pW)
+    if isD and pLtf and ok3 and sz3 >= 2
+        Cdl k = array.get(a3, sz3 - 2)
+        int xs = f_xOf(xs3, sz3 - 2, s3)
+        f_ln(xs, k.h, e3, k.h, pColH, pSty, pW)
+        f_ln(xs, k.l, e3, k.l, pColL, pSty, pW)
 
     // ---- 4 M90 terakhir yang sudah close (rantai Daily), dari candle M90-nya di panel ----
     if isD and fShow and ok3 and sz3 >= 2
