@@ -28,8 +28,7 @@ showBear  = input.bool(true, "Reversal BEARISH")
 minScore  = input.int(5, "Skor minimal untuk sinyal", minval=3, maxval=10)
 closeZone = input.float(20, "Ciri 2: C1 close dekat ekstrem (%)", minval=1, maxval=50)
 climaxK   = input.float(1.5, "Ciri 4: klimaks = range C1 >= X kali rata-rata", minval=1, step=0.1)
-showLvl   = input.bool(true, "Gambar high/low C1 dan open C2")
-showChk   = input.bool(true, "Tampilkan checklist di label")
+showLvl   = input.bool(false, "Gambar high/low C1 dan open C2")
 sweepAlrt = input.bool(false, "Alert juga saat sweep terjadi (sebelum pemicu)")
 
 isDaily = mode == "Daily - H6 - M90"
@@ -54,7 +53,7 @@ newMTF = ta.change(time(mtf)) != 0
 f_px(float v) =>
     str.tostring(v, format.mintick)
 f_ck(bool b) =>
-    b ? "✓ " : "✗ "
+    b ? "[YA]    " : "[tidak] "
 
 // ---------- Status per candle HTF ----------
 var int   mIdx    = 0        // nomor candle MTF yang sedang berjalan di dalam C2 (1..)
@@ -171,9 +170,9 @@ if newMTF and not newHTF and swL and not doneB and showBull and mC > pL and mC >
     doneB := true
     if k1 and sc >= minScore
         sigBScore := sc
-        string chk = showChk ? "\n" + f_ck(k1) + "C1 bearish\n" + f_ck(k2) + "C1 close " + str.tostring(c1ClosePct, "#") + "% (dekat low)\n" + f_ck(k3) + "C1 berakhir lemah\n" + f_ck(k4) + "C1 klimaks\n" + f_ck(k5) + "low C1 = low 5 candle\n" + f_ck(k6) + "sweep low C1 " + f_px(pL) + "\n" + f_ck(k7) + "sweep di MTF ke-" + str.tostring(swLIdx) + "\n" + f_ck(k8) + "MTF close > low C1 & > open\n" + f_ck(k9) + "FVG bullish TF kecil\n" + f_ck(k10) + "struktur TF kecil berubah" : ""
-        string txt = "REVERSAL BULLISH  skor " + str.tostring(sc) + "/10\n" + mode + " | MTF ke-" + str.tostring(mIdx - 1) + " close " + f_px(mC) + chk
-        label.new(bar_index, low, txt, style=label.style_label_up, color=sc >= 8 ? color.green : sc >= 6 ? color.new(color.green, 30) : color.new(color.green, 55), textcolor=color.white, size=size.small, textalign=text.align_left)
+        string chk = "\n" + f_ck(k1) + "C1 bearish\n" + f_ck(k2) + "C1 close " + str.tostring(c1ClosePct, "#") + "% (dekat low)\n" + f_ck(k3) + "C1 berakhir lemah\n" + f_ck(k4) + "C1 klimaks\n" + f_ck(k5) + "low C1 = low 5 candle\n" + f_ck(k6) + "sweep low C1 " + f_px(pL) + "\n" + f_ck(k7) + "sweep di MTF ke-" + str.tostring(swLIdx) + "\n" + f_ck(k8) + "MTF close > low C1 & > open\n" + f_ck(k9) + "FVG bullish TF kecil\n" + f_ck(k10) + "struktur TF kecil berubah"
+        string tip = "REVERSAL BULLISH  skor " + str.tostring(sc) + "/10\n" + mode + " | MTF ke-" + str.tostring(mIdx - 1) + " close " + f_px(mC) + chk
+        label.new(bar_index, low, "BUY " + str.tostring(sc), style=label.style_label_up, color=sc >= 8 ? color.green : sc >= 6 ? color.new(color.green, 30) : color.new(color.green, 55), textcolor=color.white, size=size.small, tooltip=tip)
         alert(syminfo.ticker + " REVERSAL BULLISH skor " + str.tostring(sc) + "/10 (" + mode + "): sweep low C1 " + f_px(pL) + ", MTF close " + f_px(mC) + " > open " + f_px(hO), alert.freq_once_per_bar)
 
 if newMTF and not newHTF and swH and not doneS and showBear and mC < pH and mC < hO
@@ -191,9 +190,9 @@ if newMTF and not newHTF and swH and not doneS and showBear and mC < pH and mC <
     doneS := true
     if k1 and sc >= minScore
         sigSScore := sc
-        string chk = showChk ? "\n" + f_ck(k1) + "C1 bullish\n" + f_ck(k2) + "C1 close " + str.tostring(c1ClosePct, "#") + "% (dekat high)\n" + f_ck(k3) + "C1 berakhir lemah\n" + f_ck(k4) + "C1 klimaks\n" + f_ck(k5) + "high C1 = high 5 candle\n" + f_ck(k6) + "sweep high C1 " + f_px(pH) + "\n" + f_ck(k7) + "sweep di MTF ke-" + str.tostring(swHIdx) + "\n" + f_ck(k8) + "MTF close < high C1 & < open\n" + f_ck(k9) + "FVG bearish TF kecil\n" + f_ck(k10) + "struktur TF kecil berubah" : ""
-        string txt = "REVERSAL BEARISH  skor " + str.tostring(sc) + "/10\n" + mode + " | MTF ke-" + str.tostring(mIdx - 1) + " close " + f_px(mC) + chk
-        label.new(bar_index, high, txt, style=label.style_label_down, color=sc >= 8 ? color.red : sc >= 6 ? color.new(color.red, 30) : color.new(color.red, 55), textcolor=color.white, size=size.small, textalign=text.align_left)
+        string chk = "\n" + f_ck(k1) + "C1 bullish\n" + f_ck(k2) + "C1 close " + str.tostring(c1ClosePct, "#") + "% (dekat high)\n" + f_ck(k3) + "C1 berakhir lemah\n" + f_ck(k4) + "C1 klimaks\n" + f_ck(k5) + "high C1 = high 5 candle\n" + f_ck(k6) + "sweep high C1 " + f_px(pH) + "\n" + f_ck(k7) + "sweep di MTF ke-" + str.tostring(swHIdx) + "\n" + f_ck(k8) + "MTF close < high C1 & < open\n" + f_ck(k9) + "FVG bearish TF kecil\n" + f_ck(k10) + "struktur TF kecil berubah"
+        string tip = "REVERSAL BEARISH  skor " + str.tostring(sc) + "/10\n" + mode + " | MTF ke-" + str.tostring(mIdx - 1) + " close " + f_px(mC) + chk
+        label.new(bar_index, high, "SELL " + str.tostring(sc), style=label.style_label_down, color=sc >= 8 ? color.red : sc >= 6 ? color.new(color.red, 30) : color.new(color.red, 55), textcolor=color.white, size=size.small, tooltip=tip)
         alert(syminfo.ticker + " REVERSAL BEARISH skor " + str.tostring(sc) + "/10 (" + mode + "): sweep high C1 " + f_px(pH) + ", MTF close " + f_px(mC) + " < open " + f_px(hO), alert.freq_once_per_bar)
 
 // ---------- Gambar ----------
@@ -201,21 +200,19 @@ plot(showLvl ? pH : na, "High C1", color=color.new(color.red, 30), style=plot.st
 plot(showLvl ? pL : na, "Low C1", color=color.new(color.green, 30), style=plot.style_stepline)
 plot(showLvl ? hO : na, "Open C2", color=color.new(color.blue, 30), style=plot.style_stepline)
 
-// ---------- Tabel statistik ----------
-var table ts = table.new(position.bottom_right, 3, 8, bgcolor=color.new(color.black, 15), border_width=1)
+// ---------- Tabel statistik (ringkas) ----------
+// Persentase = seberapa sering candle HTF (C2) akhirnya close searah sinyal; angka dalam kurung = jumlah sinyal
+var table ts = table.new(position.bottom_right, 3, 4, bgcolor=color.new(color.black, 20), border_width=1)
+f_cell(int w, int n) =>
+    n > 0 ? str.tostring(100.0 * w / n, "#") + "% (" + str.tostring(n) + ")" : "-"
 if barstate.islast
-    table.clear(ts, 0, 0, 2, 7)
-    table.cell(ts, 0, 0, mode, text_color=color.yellow)
-    table.cell(ts, 1, 0, "Sinyal", text_color=color.yellow)
-    table.cell(ts, 2, 0, "C2 close searah", text_color=color.yellow)
-    nm = array.from("skor <=5", "skor 6-7", "skor >=8")
+    table.clear(ts, 0, 0, 2, 3)
+    table.cell(ts, 0, 0, "Skor", text_color=color.yellow, text_size=size.small)
+    table.cell(ts, 1, 0, "BUY benar", text_color=color.lime, text_size=size.small)
+    table.cell(ts, 2, 0, "SELL benar", text_color=color.red, text_size=size.small)
+    nm = array.from("8-10", "6-7", "5 ke bawah")
     for k = 0 to 2
-        int a = array.get(nB, k)
-        int b = array.get(nS, k)
-        table.cell(ts, 0, k + 1, "Bullish " + array.get(nm, k), text_color=color.lime)
-        table.cell(ts, 1, k + 1, str.tostring(a), text_color=color.white)
-        table.cell(ts, 2, k + 1, a > 0 ? str.tostring(100.0 * array.get(wB, k) / a, "#") + "%" : "-", text_color=color.white)
-        table.cell(ts, 0, k + 4, "Bearish " + array.get(nm, k), text_color=color.red)
-        table.cell(ts, 1, k + 4, str.tostring(b), text_color=color.white)
-        table.cell(ts, 2, k + 4, b > 0 ? str.tostring(100.0 * array.get(wS, k) / b, "#") + "%" : "-", text_color=color.white)
-    table.cell(ts, 0, 7, "Chart harus " + (isDaily ? "M90" : "M30") + " atau lebih kecil", text_color=color.gray)
+        int j = 2 - k
+        table.cell(ts, 0, k + 1, array.get(nm, k), text_color=color.white, text_size=size.small)
+        table.cell(ts, 1, k + 1, f_cell(array.get(wB, j), array.get(nB, j)), text_color=color.white, text_size=size.small)
+        table.cell(ts, 2, k + 1, f_cell(array.get(wS, j), array.get(nS, j)), text_color=color.white, text_size=size.small)
