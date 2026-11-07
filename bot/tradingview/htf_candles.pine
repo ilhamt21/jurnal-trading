@@ -11,12 +11,15 @@ mode   = input.string("Daily - H6 - M90", "Rantai timeframe", options=["Daily - 
 isD    = mode == "Daily - H6 - M90"
 
 gC = "Candle HTF di kanan chart"
-cBull   = input.color(color.new(#089981, 0), "Warna bullish", group=gC, inline="c")
-cBear   = input.color(color.new(#F23645, 0), "bearish", group=gC, inline="c")
-cWidth  = input.int(3, "Lebar candle (bar)", minval=1, maxval=10, group=gC)
-cOffset = input.int(6, "Jarak dari candle terakhir (bar)", minval=1, maxval=50, group=gC)
-cGap    = input.int(4, "Jarak antar kelompok (bar)", minval=1, maxval=20, group=gC)
+cBull   = input.color(color.white, "Body bullish", group=gC, inline="c")
+cBear   = input.color(color.black, "Body bearish", group=gC, inline="c")
+cEdge   = input.color(color.black, "Garis tepi & wick", group=gC, inline="c")
+cWidth  = input.int(5, "Lebar candle (bar)", minval=1, maxval=15, group=gC)
+cSpace  = input.int(2, "Jarak antar candle (bar)", minval=0, maxval=10, group=gC)
+cOffset = input.int(8, "Jarak dari harga sekarang (bar)", minval=1, maxval=50, group=gC)
+cGap    = input.int(8, "Jarak antar kelompok (bar)", minval=1, maxval=30, group=gC)
 cTime   = input.bool(true, "Tulis jam di bawah tiap candle (NY)", group=gC)
+cOLbl   = input.bool(false, "Tulis label di garis open", group=gC)
 
 f_styleIn(string s) =>
     s == "Solid" ? line.style_solid : s == "Putus-putus" ? line.style_dashed : line.style_dotted
@@ -46,7 +49,7 @@ lW     = input.int(1, "Tebal", minval=1, maxval=4, group=gL, inline="l")
 lCol   = input.color(color.new(color.orange, 0), "", group=gL, inline="l")
 
 gOL = "Panjang garis open"
-olEnd  = input.string("Sampai kotak HTF di kanan", "Garis open ditarik", options=["Sampai harga sekarang", "Sampai kotak HTF di kanan"], group=gOL)
+olEnd  = input.string("Sampai harga sekarang", "Garis open ditarik", options=["Sampai harga sekarang", "Sampai kotak HTF di kanan"], group=gOL)
 
 gR = "C1 (Daily) / Referensi H4 jam 05:00"
 rShow  = input.bool(true, "Garis high & low C1 / H4 05:00", group=gR)
@@ -236,13 +239,13 @@ f_group(array<Cdl> a, int n, int x0, string nm, bool isDaily) =>
             Cdl k = array.get(a, i)
             color col = k.c >= k.o ? cBull : cBear
             int xm = x + int(cWidth / 2)
-            array.push(gLn, line.new(xm, k.h, xm, k.l, color=col, width=1))
-            array.push(gBx, box.new(x, math.max(k.o, k.c), x + cWidth - 1, math.min(k.o, k.c), border_color=col, border_width=1, bgcolor=color.new(col, k.c >= k.o ? 70 : 20)))
+            array.push(gLn, line.new(xm, k.h, xm, k.l, color=cEdge, width=1))
+            array.push(gBx, box.new(x, math.max(k.o, k.c), x + cWidth - 1, math.min(k.o, k.c), border_color=cEdge, border_width=1, bgcolor=col))
             if cTime
                 f_lbl(xm, k.l, isDaily ? f_day(k.t) : f_hm(k.t), color.gray, label.style_label_up)
             top := math.max(top, k.h)
             xLast := xm
-            x += cWidth + 1
+            x += cWidth + cSpace
         f_lbl(x0 + int((x - x0) / 2), top, nm, color.gray, label.style_label_down)
     [x + cGap, xLast]
 
@@ -263,14 +266,6 @@ if barstate.islast
     int xH = na
     int xM = na
     int xL = na
-    if hShow and ok1
-        [nx, xl_] = f_group(a1, hN, x, n1, isD)
-        xH := xl_
-        x  := nx
-    if mShow and ok2
-        [nx, xl_] = f_group(a2, mN, x, n2, false)
-        xM := xl_
-        x  := nx
     if isD and lShow
         if ok3
             [nx, xl_] = f_group(a3, lN, x, n3, false)
@@ -278,13 +273,22 @@ if barstate.islast
             x  := nx
         else
             f_lbl(x, close, "M90: buka chart <= M90", color.gray, label.style_label_left)
+    if mShow and ok2
+        [nx, xl_] = f_group(a2, mN, x, n2, false)
+        xM := xl_
+        x  := nx
+    if hShow and ok1
+        [nx, xl_] = f_group(a1, hN, x, n1, isD)
+        xH := xl_
+        x  := nx
 
     // ---- Garis open ----
     if hOpen and ok1 and array.size(a1) > 0
         Cdl k = array.last(a1)
         int xe = olEnd == "Sampai harga sekarang" or na(xH) ? nowX : xH
         f_ln(k.b, k.o, xe, k.o, hCol, hSty, hW)
-        f_lbl(xe, k.o, "Open " + n1, hCol, label.style_label_left)
+        if cOLbl
+            f_lbl(xe, k.o, "Open " + n1, hCol, label.style_label_left)
     if mOpen and ok2 and array.size(a2) > 0 and array.size(a1) > 0
         int t1 = array.last(a1).t
         int xe = olEnd == "Sampai harga sekarang" or na(xM) ? nowX : xM
@@ -295,13 +299,15 @@ if barstate.islast
             if k.t < t1 or k2 >= 6
                 break
             f_ln(k.b, k.o, xe, k.o, mCol, mSty, mW)
-            f_lbl(xe, k.o, "Open " + n2 + " " + f_hm(k.t), mCol, label.style_label_left)
+            if cOLbl
+                f_lbl(xe, k.o, "Open " + n2 + " " + f_hm(k.t), mCol, label.style_label_left)
             k2 += 1
     if isD and lOpen and ok3 and array.size(a3) > 0
         Cdl k = array.last(a3)
         int xe = olEnd == "Sampai harga sekarang" or na(xL) ? nowX : xL
         f_ln(k.b, k.o, xe, k.o, lCol, lSty, lW)
-        f_lbl(xe, k.o, "Open M90 " + f_hm(k.t), lCol, label.style_label_left)
+        if cOLbl
+            f_lbl(xe, k.o, "Open M90 " + f_hm(k.t), lCol, label.style_label_left)
 
     // ---- C1 Daily (rantai Daily) ----
     int szD = array.size(dA)
