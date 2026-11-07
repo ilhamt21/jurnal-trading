@@ -99,3 +99,13 @@ high/low harian (PDH/PDL, beberapa hari ke belakang), high/low minggu lalu (PWH/
 - **Garis putus-putus:** level fresh (merah = atas, hijau = bawah). Garis hilang begitu level tersapu.
 - **Sinyal/notifikasi** menyebutkan level fresh yang tersapu di sisi sweep selama sesi berjalan.
 - **Filter opsional:** "minimal level fresh tersapu di sisi sweep" (0 = mati).
+
+## Indikator candle pembalikan C1 → C2
+
+File: `bot/tradingview/reversal_candle.pine`. Bisa dipakai di timeframe apa pun.
+
+- **Pembalikan bullish:** C1 bearish, C2 menyapu low C1 lalu close bullish kembali di atas low C1. Bearish kebalikannya.
+- **Kekuatan:** 1 = sweep & tolak, 2 = close melewati 50% C1, 3 = close melewati open C1 (body C1 ditelan).
+- **Bedah timeframe kecil (otomatis):** urutan OHLC/OLHC C2, sub-candle tempat high/low terbentuk, dan apakah C1 "berakhir lemah".
+- **Tabel kanan bawah:** jumlah pembalikan per kekuatan dan seberapa sering C3 melanjutkan arahnya.
+- **Alert:** saat C2 close (sinyal final), dan opsional alert dini saat C2 masih berjalan.

@@ -1,0 +1,144 @@
+//@version=5
+// Candle pembalikan C1 -> C2, dengan bedah anatomi di timeframe kecil (jurnal-trading)
+// Bisa dipakai di timeframe apa pun (Daily, H6, H4, H1, ...).
+//
+// Pembalikan BULLISH: C1 bearish, lalu C2 menyapu LOW C1 dan close bullish kembali di atas low C1.
+// Pembalikan BEARISH: C1 bullish, lalu C2 menyapu HIGH C1 dan close bearish kembali di bawah high C1.
+//
+// Kekuatan:
+//   1 = sweep & tolak (close kembali ke dalam range C1)
+//   2 = close melewati 50% range C1
+//   3 = close melewati OPEN C1 (body C1 "ditelan")
+//
+// Bedah timeframe kecil: urutan OHLC/OLHC, di sub-candle ke berapa high/low terbentuk,
+// dan apakah C1 "berakhir lemah" (sub-candle terakhir membuat ekstrem baru tapi body kecil/wick panjang).
+indicator("Candle Pembalikan C1-C2 (jurnal-trading)", shorttitle="Pembalikan C1C2", overlay=true, max_labels_count=500)
+
+// ---------- Pengaturan ----------
+showBull   = input.bool(true, "Tampilkan pembalikan BULLISH (C1 bearish -> C2 bullish)")
+showBear   = input.bool(true, "Tampilkan pembalikan BEARISH (C1 bullish -> C2 bearish)")
+minLvl     = input.int(1, "Kekuatan minimal (1 = sweep & tolak, 2 = lewat 50% C1, 3 = menelan body C1)", minval=1, maxval=3)
+needSweep  = input.bool(true, "Wajib menyapu low/high C1")
+useLtf     = input.bool(true, "Bedah di timeframe kecil (urutan OHLC/OLHC)")
+ltfIn      = input.timeframe("", "Timeframe kecil (kosong = otomatis)")
+showLabel  = input.bool(true, "Tampilkan label detail")
+earlyAlert = input.bool(true, "Alert dini saat C2 masih berjalan")
+
+// ---------- Timeframe kecil otomatis ----------
+sec     = timeframe.in_seconds()
+autoLtf = sec >= 604800 ? "D" : sec >= 86400 ? "240" : sec >= 14400 ? "60" : sec >= 3600 ? "15" : sec >= 1800 ? "5" : "1"
+ltf     = ltfIn == "" ? autoLtf : ltfIn
+
+[hs, ls, os, cs] = request.security_lower_tf(syminfo.tickerid, ltf, [high, low, open, close])
+
+// ---------- Anatomi candle ini di timeframe kecil ----------
+int    nSub        = array.size(hs)
+int    iH          = -1
+int    iL          = -1
+string ord         = "-"
+bool   weakEndBear = false   // candle bearish yang berakhir lemah (sub terakhir: low baru, body kecil / wick bawah)
+bool   weakEndBull = false   // candle bullish yang berakhir lemah (sub terakhir: high baru, body kecil / wick atas)
+if useLtf and nSub > 0
+    iH  := array.indexof(hs, array.max(hs))
+    iL  := array.indexof(ls, array.min(ls))
+    ord := iL < iH ? "OLHC" : iH < iL ? "OHLC" : "?"
+    float lo_ = array.get(os, nSub - 1)
+    float lc  = array.get(cs, nSub - 1)
+    float lh  = array.get(hs, nSub - 1)
+    float ll  = array.get(ls, nSub - 1)
+    float lr  = lh - ll
+    if lr > 0
+        float bodyR = math.abs(lc - lo_) / lr
+        weakEndBear := ll <= low and (bodyR < 0.3 or (math.min(lo_, lc) - ll) / lr >= 0.4)
+        weakEndBull := lh >= high and (bodyR < 0.3 or (lh - math.max(lo_, lc)) / lr >= 0.4)
+
+rng = high - low
+clp = rng > 0 ? (close - low) / rng * 100 : 50.0     // posisi close di dalam range (0-100%)
+
+// ---------- Deteksi C1 -> C2 ----------
+c1Bear = close[1] < open[1]
+c1Bull = close[1] > open[1]
+mid1   = (high[1] + low[1]) / 2
+
+bullSweep = low < low[1]
+bullBase  = c1Bear and close > open and close > low[1] and (needSweep ? bullSweep : true)
+bullLvl   = not bullBase ? 0 : close > open[1] ? 3 : close > mid1 ? 2 : 1
+
+bearSweep = high > high[1]
+bearBase  = c1Bull and close < open and close < high[1] and (needSweep ? bearSweep : true)
+bearLvl   = not bearBase ? 0 : close < open[1] ? 3 : close < mid1 ? 2 : 1
+
+sigBull = showBull and barstate.isconfirmed and bullLvl >= minLvl
+sigBear = showBear and barstate.isconfirmed and bearLvl >= minLvl
+
+f_lvl(int l) =>
+    l == 3 ? "kuat: menelan body C1" : l == 2 ? "sedang: lewat 50% C1" : "dasar: sweep & tolak"
+
+f_px(float v) =>
+    str.tostring(v, format.mintick)
+
+f_sub(int i) =>
+    nSub > 0 ? str.tostring(i + 1) + "/" + str.tostring(nSub) : "-"
+
+// ---------- Label & alert ----------
+if sigBull
+    string c1Note = "C1: close " + str.tostring(clp[1], "#") + "% range" + (clp[1] <= 15 ? " (dekat low -> SSL fresh)" : "") + (weakEndBear[1] ? " | berakhir LEMAH" : "")
+    string c2Note = "C2: sweep low C1 " + f_px(low[1]) + " -> " + f_px(low) + " | close " + f_px(close)
+    string ana    = useLtf ? "Urutan C2: " + ord + " | low di sub " + f_sub(iL) + ", high di sub " + f_sub(iH) + " (" + ltf + ")" : ""
+    string txt    = "PEMBALIKAN BULLISH (" + f_lvl(bullLvl) + ")\n" + c1Note + "\n" + c2Note + (useLtf ? "\n" + ana : "")
+    if showLabel
+        label.new(bar_index, low, txt, style=label.style_label_up, color=bullLvl == 3 ? color.green : bullLvl == 2 ? color.new(color.green, 30) : color.new(color.green, 55), textcolor=color.white, size=size.small)
+    alert(syminfo.ticker + " " + timeframe.period + ": " + str.replace_all(txt, "\n", " | "), alert.freq_once_per_bar_close)
+
+if sigBear
+    string c1Note = "C1: close " + str.tostring(clp[1], "#") + "% range" + (clp[1] >= 85 ? " (dekat high -> BSL fresh)" : "") + (weakEndBull[1] ? " | berakhir LEMAH" : "")
+    string c2Note = "C2: sweep high C1 " + f_px(high[1]) + " -> " + f_px(high) + " | close " + f_px(close)
+    string ana    = useLtf ? "Urutan C2: " + ord + " | high di sub " + f_sub(iH) + ", low di sub " + f_sub(iL) + " (" + ltf + ")" : ""
+    string txt    = "PEMBALIKAN BEARISH (" + f_lvl(bearLvl) + ")\n" + c1Note + "\n" + c2Note + (useLtf ? "\n" + ana : "")
+    if showLabel
+        label.new(bar_index, high, txt, style=label.style_label_down, color=bearLvl == 3 ? color.red : bearLvl == 2 ? color.new(color.red, 30) : color.new(color.red, 55), textcolor=color.white, size=size.small)
+    alert(syminfo.ticker + " " + timeframe.period + ": " + str.replace_all(txt, "\n", " | "), alert.freq_once_per_bar_close)
+
+plotshape(sigBull, "Pembalikan bullish", shape.triangleup, location.belowbar, color.green, size=size.tiny)
+plotshape(sigBear, "Pembalikan bearish", shape.triangledown, location.abovebar, color.red, size=size.tiny)
+
+// Alert dini: C2 masih berjalan, sudah menyapu ekstrem C1 dan kembali melewati open C2
+if earlyAlert and barstate.isrealtime and not barstate.isconfirmed
+    if showBull and c1Bear and low < low[1] and close > open and close > low[1]
+        alert("Potensi pembalikan BULLISH " + syminfo.ticker + " " + timeframe.period + ": C2 menyapu low C1 (" + f_px(low[1]) + ") lalu kembali di atas open C2", alert.freq_once_per_bar)
+    if showBear and c1Bull and high > high[1] and close < open and close < high[1]
+        alert("Potensi pembalikan BEARISH " + syminfo.ticker + " " + timeframe.period + ": C2 menyapu high C1 (" + f_px(high[1]) + ") lalu kembali di bawah open C2", alert.freq_once_per_bar)
+
+// ---------- Statistik: apakah C3 melanjutkan arah pembalikan? ----------
+// indeks 1..3 = kekuatan; lanjut = C3 close melewati close C2 searah pembalikan
+var nBull = array.new_int(4, 0)
+var wBull = array.new_int(4, 0)
+var nBear = array.new_int(4, 0)
+var wBear = array.new_int(4, 0)
+if barstate.isconfirmed and sigBull[1]
+    int l = bullLvl[1]
+    array.set(nBull, l, array.get(nBull, l) + 1)
+    if close > close[1]
+        array.set(wBull, l, array.get(wBull, l) + 1)
+if barstate.isconfirmed and sigBear[1]
+    int l = bearLvl[1]
+    array.set(nBear, l, array.get(nBear, l) + 1)
+    if close < close[1]
+        array.set(wBear, l, array.get(wBear, l) + 1)
+
+var table ts = table.new(position.bottom_right, 3, 8, bgcolor=color.new(color.black, 15), border_width=1)
+if barstate.islast
+    table.clear(ts, 0, 0, 2, 7)
+    table.cell(ts, 0, 0, "Pembalikan", text_color=color.yellow)
+    table.cell(ts, 1, 0, "Jumlah", text_color=color.yellow)
+    table.cell(ts, 2, 0, "C3 lanjut", text_color=color.yellow)
+    for k = 1 to 3
+        int nb = array.get(nBull, k)
+        int ns = array.get(nBear, k)
+        table.cell(ts, 0, k, "Bullish lv" + str.tostring(k), text_color=color.lime)
+        table.cell(ts, 1, k, str.tostring(nb), text_color=color.white)
+        table.cell(ts, 2, k, nb > 0 ? str.tostring(100.0 * array.get(wBull, k) / nb, "#") + "%" : "-", text_color=color.white)
+        table.cell(ts, 0, k + 3, "Bearish lv" + str.tostring(k), text_color=color.red)
+        table.cell(ts, 1, k + 3, str.tostring(ns), text_color=color.white)
+        table.cell(ts, 2, k + 3, ns > 0 ? str.tostring(100.0 * array.get(wBear, k) / ns, "#") + "%" : "-", text_color=color.white)
+    table.cell(ts, 0, 7, "TF kecil: " + (useLtf ? ltf : "mati"), text_color=color.gray)
