@@ -29,7 +29,8 @@ minScore  = input.int(5, "Skor minimal untuk sinyal", minval=3, maxval=10)
 closeZone = input.float(20, "Ciri 2: C1 close dekat ekstrem (%)", minval=1, maxval=50)
 climaxK   = input.float(1.5, "Ciri 4: klimaks = range C1 >= X kali rata-rata", minval=1, step=0.1)
 showLvl   = input.bool(false, "Gambar high/low C1 dan open C2")
-showMtf   = input.bool(true, "Tandai candle MTF (H6 untuk Daily / H1 untuk H4)")
+showMtf   = input.bool(true, "Candle bayangan MTF (H6 untuk Daily / H1 untuk H4)")
+showHtf   = input.bool(false, "Candle bayangan HTF (Daily / H4)")
 sweepAlrt = input.bool(false, "Alert juga saat sweep terjadi (sebelum pemicu)")
 
 isDaily = mode == "Daily - H6 - M90"
@@ -89,17 +90,35 @@ var wS = array.new_int(3, 0)
 f_bucket(int sc) =>
     sc >= 8 ? 2 : sc >= 6 ? 1 : 0
 
-// ---------- Penanda candle MTF (kotak bernomor) ----------
-var int mStartBar = na
-var box lastBox   = na
+// ---------- Candle bayangan: MTF (H6/H1) dan HTF (Daily/H4) digambar di belakang candle kecil ----------
+var int   mStartBar = na
+var int   hStartBar = na
+var box   lastBox   = na     // body candle bayangan MTF terakhir
+var line  lastWick  = na     // wick candle bayangan MTF terakhir
+var label lastTag   = na     // tulisan di atas candle bayangan MTF terakhir
 int prevIdx = mIdx            // nomor MTF yang baru saja selesai (kalau newMTF)
+
+f_ghost(int x1, int x2, float o, float h, float l, float c, int transp) =>
+    bool  up  = c >= o
+    color col = up ? color.green : color.red
+    int   xm  = math.round((x1 + x2) / 2)
+    line  w   = line.new(xm, h, xm, l, color=color.new(col, transp), width=2)
+    box   b   = box.new(x1, math.max(o, c), x2, math.min(o, c), border_color=color.new(col, transp), bgcolor=color.new(col, math.min(97, transp + 40)))
+    [b, w, xm]
+
 if showMtf and newMTF and not na(mStartBar)
-    bool   mBull  = mC >= mO
-    bool   hadSw  = (swL and swLIdx == prevIdx) or (swH and swHIdx == prevIdx)
-    string tag    = mtfName + "-" + str.tostring(prevIdx) + (hadSw ? " sweep" : "")
-    lastBox := box.new(mStartBar, mH, bar_index - 1, mL, border_color=color.new(mBull ? color.green : color.red, 50), bgcolor=color.new(mBull ? color.green : color.red, 93), text=tag, text_size=size.small, text_color=color.gray, text_valign=text.align_top, text_halign=text.align_left)
+    bool   hadSw = (swL and swLIdx == prevIdx) or (swH and swHIdx == prevIdx)
+    string tag   = mtfName + "-" + str.tostring(prevIdx) + (hadSw ? " sweep" : "")
+    [gb, gw, gx] = f_ghost(mStartBar, bar_index - 1, mO, mH, mL, mC, 55)
+    lastBox  := gb
+    lastWick := gw
+    lastTag  := label.new(gx, mH, tag, style=label.style_none, textcolor=color.gray, size=size.small)
+if showHtf and newHTF and not na(hStartBar)
+    [hb, hw, hx] = f_ghost(hStartBar, bar_index - 1, pO, pH, pL, pC, 80)
 if showMtf and newHTF
     line.new(bar_index, low, bar_index, high, extend=extend.both, color=color.new(color.gray, 55), style=line.style_dashed)
+if newHTF
+    hStartBar := bar_index
 if newMTF
     mStartBar := bar_index
 
@@ -189,10 +208,11 @@ if newMTF and not newHTF and swL and not doneB and showBull and mC > pL and mC >
         string chk = "\n" + f_ck(k1) + "C1 bearish\n" + f_ck(k2) + "C1 close " + str.tostring(c1ClosePct, "#") + "% (dekat low)\n" + f_ck(k3) + "C1 berakhir lemah\n" + f_ck(k4) + "C1 klimaks\n" + f_ck(k5) + "low C1 = low 5 candle\n" + f_ck(k6) + "sweep low C1 " + f_px(pL) + "\n" + f_ck(k7) + "sweep di MTF ke-" + str.tostring(swLIdx) + "\n" + f_ck(k8) + "MTF close > low C1 & > open\n" + f_ck(k9) + "FVG bullish TF kecil\n" + f_ck(k10) + "struktur TF kecil berubah"
         string tip = "REVERSAL BULLISH  skor " + str.tostring(sc) + "/10\n" + mode + " | MTF ke-" + str.tostring(mIdx - 1) + " close " + f_px(mC) + chk
         if showMtf and not na(lastBox)
-            box.set_text(lastBox, mtfName + "-" + str.tostring(prevIdx) + (swLIdx == prevIdx ? " sweep +" : "") + " PEMICU BUY")
+            label.set_text(lastTag, mtfName + "-" + str.tostring(prevIdx) + (swLIdx == prevIdx ? " sweep +" : "") + " PEMICU BUY")
+            label.set_textcolor(lastTag, color.green)
             box.set_border_color(lastBox, color.green)
             box.set_border_width(lastBox, 2)
-            box.set_text_color(lastBox, color.green)
+            line.set_color(lastWick, color.green)
         label.new(bar_index, low, "BUY " + str.tostring(sc), style=label.style_label_up, color=sc >= 8 ? color.green : sc >= 6 ? color.new(color.green, 30) : color.new(color.green, 55), textcolor=color.white, size=size.small, tooltip=tip)
         alert(syminfo.ticker + " REVERSAL BULLISH skor " + str.tostring(sc) + "/10 (" + mode + "): sweep low C1 " + f_px(pL) + ", MTF close " + f_px(mC) + " > open " + f_px(hO), alert.freq_once_per_bar)
 
@@ -214,10 +234,11 @@ if newMTF and not newHTF and swH and not doneS and showBear and mC < pH and mC <
         string chk = "\n" + f_ck(k1) + "C1 bullish\n" + f_ck(k2) + "C1 close " + str.tostring(c1ClosePct, "#") + "% (dekat high)\n" + f_ck(k3) + "C1 berakhir lemah\n" + f_ck(k4) + "C1 klimaks\n" + f_ck(k5) + "high C1 = high 5 candle\n" + f_ck(k6) + "sweep high C1 " + f_px(pH) + "\n" + f_ck(k7) + "sweep di MTF ke-" + str.tostring(swHIdx) + "\n" + f_ck(k8) + "MTF close < high C1 & < open\n" + f_ck(k9) + "FVG bearish TF kecil\n" + f_ck(k10) + "struktur TF kecil berubah"
         string tip = "REVERSAL BEARISH  skor " + str.tostring(sc) + "/10\n" + mode + " | MTF ke-" + str.tostring(mIdx - 1) + " close " + f_px(mC) + chk
         if showMtf and not na(lastBox)
-            box.set_text(lastBox, mtfName + "-" + str.tostring(prevIdx) + (swHIdx == prevIdx ? " sweep +" : "") + " PEMICU SELL")
+            label.set_text(lastTag, mtfName + "-" + str.tostring(prevIdx) + (swHIdx == prevIdx ? " sweep +" : "") + " PEMICU SELL")
+            label.set_textcolor(lastTag, color.red)
             box.set_border_color(lastBox, color.red)
             box.set_border_width(lastBox, 2)
-            box.set_text_color(lastBox, color.red)
+            line.set_color(lastWick, color.red)
         label.new(bar_index, high, "SELL " + str.tostring(sc), style=label.style_label_down, color=sc >= 8 ? color.red : sc >= 6 ? color.new(color.red, 30) : color.new(color.red, 55), textcolor=color.white, size=size.small, tooltip=tip)
         alert(syminfo.ticker + " REVERSAL BEARISH skor " + str.tostring(sc) + "/10 (" + mode + "): sweep high C1 " + f_px(pH) + ", MTF close " + f_px(mC) + " < open " + f_px(hO), alert.freq_once_per_bar)
 

@@ -117,5 +117,5 @@ File: `bot/tradingview/reversal_mtf.pine`. Pilihan rantai: **Daily → H6 → M9
 - **Sinyal reversal bullish:** C2 menyapu low C1, lalu candle MTF (H6/H1) close kembali di atas low C1 **dan** di atas open C2. Bearish kebalikannya.
 - **Skor 0–10** dari ciri reversal: C1 berlawanan arah, close C1 dekat ekstrem, C1 berakhir lemah, C1 klimaks, low/high C1 = ekstrem 5 candle, sweep, sweep di awal candle, pemicu MTF, FVG di TF kecil, perubahan struktur TF kecil. Checklist muncul di label.
 - **Tabel kanan bawah:** jumlah sinyal per kelompok skor, dan berapa persen C2 akhirnya close searah reversal.
-- **Penanda MTF:** kotak bernomor untuk setiap candle H6 (mode Daily) atau H1 (mode H4), tulisan "sweep" di kotak yang menyapu, kotak pemicu ditebalkan, dan garis putus-putus di awal setiap candle HTF.
+- **Candle bayangan MTF:** setiap candle H6 (mode Daily) atau H1 (mode H4) digambar sebagai candle transparan besar (body + wick) di belakang candle kecil, bernomor, dengan tulisan "sweep" dan "PEMICU". Opsional candle bayangan HTF (Daily/H4). Garis putus-putus = awal candle HTF.
 - **Alert:** saat sinyal muncul, dan opsional saat sweep terjadi.
