@@ -31,14 +31,16 @@ climaxK   = input.float(1.5, "Ciri 4: klimaks = range C1 >= X kali rata-rata", m
 showLvl   = input.bool(false, "Gambar high/low C1 dan open C2")
 showMtf   = input.bool(true, "Candle bayangan MTF (H6 untuk Daily / H1 untuk H4)")
 showHtf   = input.bool(false, "Candle bayangan HTF (Daily / H4)")
-posMode   = input.string("Bar (aman)", "Posisi candle bayangan", options=["Bar (aman)", "Waktu (presisi)"], tooltip="Kalau candle bayangan tidak muncul di mode Waktu, pakai mode Bar")
-useTime   = posMode == "Waktu (presisi)"
+posMode   = input.string("Plot (pasti tampil)", "Cara gambar candle bayangan", options=["Plot (pasti tampil)", "Kotak (bar)", "Kotak (waktu)"], tooltip="Plot = diwarnai langsung di belakang candle kecil. Kotak = digambar sebagai box saat candle MTF close")
+useTime   = posMode == "Kotak (waktu)"
+usePlot   = posMode == "Plot (pasti tampil)"
 sweepAlrt = input.bool(false, "Alert juga saat sweep terjadi (sebelum pemicu)")
 
 grpE      = "ENTRY: bias MTF lalu sweep candle kecil"
 useEntry  = input.bool(true, "Tampilkan sinyal ENTRY", group=grpE)
 eBufPips  = input.float(1.0, "Buffer SL (pips)", minval=0, step=0.1, group=grpE)
 eMinRR    = input.float(1.0, "RR minimal ke target (low/high C1)", minval=0, step=0.1, group=grpE)
+eTol      = input.float(1.0, "Toleransi sweep candle kecil (pips): high yang menyamai high sebelumnya (equal high) tetap dihitung sweep", minval=0, step=0.1, group=grpE)
 eWait     = input.int(2, "Maks candle kecil menunggu close setelah sweep", minval=1, maxval=4, group=grpE)
 pipIn     = input.float(0, "Ukuran pip (0 = otomatis)", minval=0, group=grpE)
 pip       = pipIn > 0 ? pipIn : (syminfo.currency == "JPY" ? 0.01 : 0.0001)
@@ -209,10 +211,13 @@ f_ghost(int b1, int b2, int t1, int t2, float o, float h, float l, float c, int 
 if showMtf and mtfEnd and not na(mStartT)
     bool   hadSw = (swL and swLIdx == mIdx) or (swH and swHIdx == mIdx)
     string tag   = mtfName + "-" + str.tostring(mIdx) + (hadSw ? " sweep" : "")
-    [gb, gw, gx] = f_ghost(mStartBar, bar_index, mStartT, time_close, mO, mH, mL, mC, 45)
-    lastBox  := gb
-    lastWick := gw
-    lastTag  := label.new(gx, mH, tag, xloc=useTime ? xloc.bar_time : xloc.bar_index, style=label.style_label_down, color=color.new(color.white, 100), textcolor=color.gray, size=size.small)
+    if usePlot
+        lastTag := label.new(math.round((mStartBar + bar_index) / 2), mH, tag, style=label.style_label_down, color=color.new(color.white, 100), textcolor=color.gray, size=size.small)
+    else
+        [gb, gw, gx] = f_ghost(mStartBar, bar_index, mStartT, time_close, mO, mH, mL, mC, 45)
+        lastBox  := gb
+        lastWick := gw
+        lastTag  := label.new(gx, mH, tag, xloc=useTime ? xloc.bar_time : xloc.bar_index, style=label.style_label_down, color=color.new(color.white, 100), textcolor=color.gray, size=size.small)
 if showHtf and htfEnd and not na(hStartT)
     [hb, hw, hx] = f_ghost(hStartBar, bar_index, hStartT, time_close, hO, curHi, curLo, close, 75)
 // ciri "C1 berakhir lemah" untuk candle HTF berikutnya: MTF terakhir membuat ekstrem baru dengan body kecil / wick
@@ -243,12 +248,13 @@ if mtfEnd and swL and not doneB and showBull and mC > pL and mC > hO
         sigBScore := sc
         string chk = "\n" + f_ck(k1) + "C1 bearish\n" + f_ck(k2) + "C1 close " + str.tostring(c1ClosePct, "#") + "% (dekat low)\n" + f_ck(k3) + "C1 berakhir lemah\n" + f_ck(k4) + "C1 klimaks\n" + f_ck(k5) + "low C1 = low 5 candle\n" + f_ck(k6) + "sweep low C1 " + f_px(pL) + "\n" + f_ck(k7) + "sweep di MTF ke-" + str.tostring(swLIdx) + "\n" + f_ck(k8) + "MTF close > low C1 & > open\n" + f_ck(k9) + "FVG bullish TF kecil\n" + f_ck(k10) + "struktur TF kecil berubah"
         string tip = "REVERSAL BULLISH  skor " + str.tostring(sc) + "/10\n" + mode + " | MTF ke-" + str.tostring(mIdx) + " close " + f_px(mC) + chk
-        if showMtf and not na(lastBox)
+        if showMtf and not na(lastTag)
             label.set_text(lastTag, mtfName + "-" + str.tostring(mIdx) + (swLIdx == mIdx ? " sweep +" : "") + " PEMICU BUY")
             label.set_textcolor(lastTag, color.green)
-            box.set_border_color(lastBox, color.green)
-            box.set_border_width(lastBox, 2)
-            line.set_color(lastWick, color.green)
+            if not na(lastBox)
+                box.set_border_color(lastBox, color.green)
+                box.set_border_width(lastBox, 2)
+                line.set_color(lastWick, color.green)
         label.new(bar_index, mL, "BUY " + str.tostring(sc), style=label.style_label_up, color=sc >= 8 ? color.green : sc >= 6 ? color.new(color.green, 30) : color.new(color.green, 55), textcolor=color.white, size=size.small, tooltip=tip)
         alert(syminfo.ticker + " REVERSAL BULLISH skor " + str.tostring(sc) + "/10 (" + mode + "): sweep low C1 " + f_px(pL) + ", MTF close " + f_px(mC) + " > open " + f_px(hO), alert.freq_once_per_bar_close)
 
@@ -269,12 +275,13 @@ if mtfEnd and swH and not doneS and showBear and mC < pH and mC < hO
         sigSScore := sc
         string chk = "\n" + f_ck(k1) + "C1 bullish\n" + f_ck(k2) + "C1 close " + str.tostring(c1ClosePct, "#") + "% (dekat high)\n" + f_ck(k3) + "C1 berakhir lemah\n" + f_ck(k4) + "C1 klimaks\n" + f_ck(k5) + "high C1 = high 5 candle\n" + f_ck(k6) + "sweep high C1 " + f_px(pH) + "\n" + f_ck(k7) + "sweep di MTF ke-" + str.tostring(swHIdx) + "\n" + f_ck(k8) + "MTF close < high C1 & < open\n" + f_ck(k9) + "FVG bearish TF kecil\n" + f_ck(k10) + "struktur TF kecil berubah"
         string tip = "REVERSAL BEARISH  skor " + str.tostring(sc) + "/10\n" + mode + " | MTF ke-" + str.tostring(mIdx) + " close " + f_px(mC) + chk
-        if showMtf and not na(lastBox)
+        if showMtf and not na(lastTag)
             label.set_text(lastTag, mtfName + "-" + str.tostring(mIdx) + (swHIdx == mIdx ? " sweep +" : "") + " PEMICU SELL")
             label.set_textcolor(lastTag, color.red)
-            box.set_border_color(lastBox, color.red)
-            box.set_border_width(lastBox, 2)
-            line.set_color(lastWick, color.red)
+            if not na(lastBox)
+                box.set_border_color(lastBox, color.red)
+                box.set_border_width(lastBox, 2)
+                line.set_color(lastWick, color.red)
         label.new(bar_index, mH, "SELL " + str.tostring(sc), style=label.style_label_down, color=sc >= 8 ? color.red : sc >= 6 ? color.new(color.red, 30) : color.new(color.red, 55), textcolor=color.white, size=size.small, tooltip=tip)
         alert(syminfo.ticker + " REVERSAL BEARISH skor " + str.tostring(sc) + "/10 (" + mode + "): sweep high C1 " + f_px(pH) + ", MTF close " + f_px(mC) + " < open " + f_px(hO), alert.freq_once_per_bar_close)
 
@@ -358,7 +365,7 @@ else if useEntry
         float mOpenC  = mOpenNow
         float buf     = eBufPips * pip
         if biasS and not entS and compIdx > biasSIdx
-            if lH > lHp
+            if lH >= lHp - eTol * pip
                 cntS := 0
                 swHiS := lH
                 swLvS := lHp
@@ -389,7 +396,7 @@ else if useEntry
             if cntS >= eWait
                 cntS := -1
         if biasB and not entB and compIdx > biasBIdx
-            if lL < lLp
+            if lL <= lLp + eTol * pip
                 cntB := 0
                 swLoB := lL
                 swLvB := lLp
@@ -421,6 +428,16 @@ else if useEntry
                 cntB := -1
 
 // ---------- Gambar ----------
+// Candle bayangan MTF mode Plot: body diwarnai di belakang candle kecil, garis tipis = high/low MTF
+[gO, gH, gL, gC] = request.security(sym, mtf, [open, high, low, close], lookahead=barmerge.lookahead_on)
+bool  gOn  = showMtf and usePlot
+bool  gUp  = gC >= gO
+color gCol = newMTF ? na : gUp ? color.green : color.red
+pgTop = plot(gOn ? math.max(gO, gC) : na, "Bayangan MTF atas", color=color.new(gCol, 40), style=plot.style_stepline, linewidth=2, display=display.pane)
+pgBot = plot(gOn ? math.min(gO, gC) : na, "Bayangan MTF bawah", color=color.new(gCol, 40), style=plot.style_stepline, linewidth=2, display=display.pane)
+fill(pgTop, pgBot, color=color.new(gCol, 82), title="Bayangan MTF body")
+plot(gOn ? gH : na, "Bayangan MTF high", color=color.new(gCol, 65), style=plot.style_stepline, display=display.pane)
+plot(gOn ? gL : na, "Bayangan MTF low", color=color.new(gCol, 65), style=plot.style_stepline, display=display.pane)
 plot(showLvl ? pH : na, "High C1", color=color.new(color.red, 30), style=plot.style_stepline)
 plot(showLvl ? pL : na, "Low C1", color=color.new(color.green, 30), style=plot.style_stepline)
 plot(showLvl ? hO : na, "Open C2", color=color.new(color.blue, 30), style=plot.style_stepline)
