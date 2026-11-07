@@ -2,7 +2,7 @@
 // Candle HTF di kanan chart + garis referensi (jurnal-trading)
 // Rantai: Daily - H6 - M90  atau  H4 - H1 - M15. Chart utama: M15.
 // Semua candle HTF dibentuk dari candle chart sendiri (tidak perlu membuka timeframe H6/M90 di chart).
-indicator("Candle HTF + Referensi (jurnal-trading)", shorttitle="HTF Candle", overlay=true, max_lines_count=500, max_boxes_count=500, max_labels_count=500)
+indicator("Candle HTF + Referensi (jurnal-trading)", shorttitle="HTF Candle", overlay=true, max_lines_count=500, max_boxes_count=500, max_labels_count=500, max_bars_back=5000)
 
 TZ = "America/New_York"
 
