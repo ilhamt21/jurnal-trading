@@ -31,6 +31,8 @@ climaxK   = input.float(1.5, "Ciri 4: klimaks = range C1 >= X kali rata-rata", m
 showLvl   = input.bool(false, "Gambar high/low C1 dan open C2")
 showMtf   = input.bool(true, "Candle bayangan MTF (H6 untuk Daily / H1 untuk H4)")
 showHtf   = input.bool(false, "Candle bayangan HTF (Daily / H4)")
+posMode   = input.string("Bar (aman)", "Posisi candle bayangan", options=["Bar (aman)", "Waktu (presisi)"], tooltip="Kalau candle bayangan tidak muncul di mode Waktu, pakai mode Bar")
+useTime   = posMode == "Waktu (presisi)"
 sweepAlrt = input.bool(false, "Alert juga saat sweep terjadi (sebelum pemicu)")
 
 grpE      = "ENTRY: bias MTF lalu sweep candle kecil"
@@ -106,6 +108,7 @@ f_bucket(int sc) =>
 var int   mStartBar = na     // bar pertama candle MTF yang sedang berjalan
 var int   mStartT   = na     // waktu (ms) candle MTF yang sedang berjalan dimulai
 var int   hStartT   = na     // waktu (ms) candle HTF yang sedang berjalan dimulai
+var int   hStartBar = na     // bar pertama candle HTF yang sedang berjalan
 halfBar = timeframe.in_seconds() * 500    // setengah lebar candle chart (ms)
 var box   lastBox   = na     // body candle bayangan MTF terakhir
 var line  lastWick  = na     // wick candle bayangan MTF terakhir
@@ -114,29 +117,35 @@ int prevIdx = mIdx            // nomor MTF yang baru saja selesai (kalau newMTF)
 
 // t1 = waktu candle kecil pertama, t2 = waktu candle besar berikutnya dimulai.
 // Tepi digeser setengah candle supaya pas di tepi candle kecil, wick tepat di tengah.
-f_ghost(int t1, int t2, float o, float h, float l, float c, int transp) =>
+// Mode Waktu: t1/t2 = waktu (ms), tepi digeser setengah candle. Mode Bar: b1/b2 = bar_index.
+f_ghost(int b1, int b2, int t1, int t2, float o, float h, float l, float c, int transp) =>
     bool  up  = c >= o
     color col = up ? color.green : color.red
-    int   xl  = t1 - halfBar
-    int   xr  = t2 - halfBar
-    int   xm  = math.round((xl + xr) / 2)
-    line  w   = line.new(xm, h, xm, l, xloc=xloc.bar_time, color=color.new(col, transp), width=2)
-    box   b   = box.new(xl, math.max(o, c), xr, math.min(o, c), xloc=xloc.bar_time, border_color=color.new(col, transp), bgcolor=color.new(col, math.min(97, transp + 40)))
+    int   xl  = useTime ? t1 - halfBar : b1
+    int   xr  = useTime ? t2 - halfBar : b2
+    int   xm  = useTime ? math.round((xl + xr) / 2) : math.round((b1 + b2) / 2)
+    string xlc = useTime ? xloc.bar_time : xloc.bar_index
+    line  w   = line.new(xm, h, xm, l, xloc=xlc, color=color.new(col, transp), width=3)
+    box   b   = box.new(xl, math.max(o, c), xr, math.min(o, c), xloc=xlc, border_color=color.new(col, transp), border_width=2, bgcolor=color.new(col, math.min(95, transp + 35)))
     [b, w, xm]
 
 if showMtf and newMTF and not na(mStartT)
     bool   hadSw = (swL and swLIdx == prevIdx) or (swH and swHIdx == prevIdx)
     string tag   = mtfName + "-" + str.tostring(prevIdx) + (hadSw ? " sweep" : "")
-    [gb, gw, gx] = f_ghost(mStartT, time, mO, mH, mL, mC, 55)
+    [gb, gw, gx] = f_ghost(mStartBar, bar_index - 1, mStartT, time, mO, mH, mL, mC, 45)
     lastBox  := gb
     lastWick := gw
-    lastTag  := label.new(gx, mH, tag, xloc=xloc.bar_time, style=label.style_label_down, color=color.new(color.white, 100), textcolor=color.gray, size=size.small)
+    lastTag  := label.new(gx, mH, tag, xloc=useTime ? xloc.bar_time : xloc.bar_index, style=label.style_label_down, color=color.new(color.white, 100), textcolor=color.gray, size=size.small)
 if showHtf and newHTF and not na(hStartT)
-    [hb, hw, hx] = f_ghost(hStartT, time, pO, pH, pL, pC, 80)
+    [hb, hw, hx] = f_ghost(hStartBar, bar_index - 1, hStartT, time, pO, pH, pL, pC, 75)
 if showMtf and newHTF
-    line.new(time - halfBar, low, time - halfBar, high, xloc=xloc.bar_time, extend=extend.both, color=color.new(color.gray, 55), style=line.style_dashed)
+    if useTime
+        line.new(time - halfBar, low, time - halfBar, high, xloc=xloc.bar_time, extend=extend.both, color=color.new(color.gray, 55), style=line.style_dashed)
+    else
+        line.new(bar_index, low, bar_index, high, extend=extend.both, color=color.new(color.gray, 55), style=line.style_dashed)
 if newHTF
     hStartT := time
+    hStartBar := bar_index
 if newMTF
     mStartBar := bar_index
     mStartT   := time
