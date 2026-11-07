@@ -19,7 +19,7 @@
 //   8  MTF close kembali di atas low C1 dan di atas open C2   (pemicu)
 //   9  Ada FVG bullish di TF kecil setelah sweep (displacement)
 //   10 TF kecil close di atas high candle yang membuat low sweep (struktur berubah)
-indicator("Indikasi Reversal MTF (jurnal-trading)", shorttitle="Reversal MTF", overlay=true, max_labels_count=500)
+indicator("Indikasi Reversal MTF (jurnal-trading)", shorttitle="Reversal MTF", overlay=true, max_labels_count=500, max_boxes_count=500, max_lines_count=500)
 
 // ---------- Pengaturan ----------
 mode      = input.string("Daily - H6 - M90", "Rantai timeframe", options=["Daily - H6 - M90", "H4 - H1 - M30"])
@@ -29,12 +29,14 @@ minScore  = input.int(5, "Skor minimal untuk sinyal", minval=3, maxval=10)
 closeZone = input.float(20, "Ciri 2: C1 close dekat ekstrem (%)", minval=1, maxval=50)
 climaxK   = input.float(1.5, "Ciri 4: klimaks = range C1 >= X kali rata-rata", minval=1, step=0.1)
 showLvl   = input.bool(false, "Gambar high/low C1 dan open C2")
+showMtf   = input.bool(true, "Tandai candle MTF (H6 untuk Daily / H1 untuk H4)")
 sweepAlrt = input.bool(false, "Alert juga saat sweep terjadi (sebelum pemicu)")
 
 isDaily = mode == "Daily - H6 - M90"
 htf = isDaily ? "D" : "240"
 mtf = isDaily ? "360" : "60"
 ltf = isDaily ? "90" : "30"
+mtfName = isDaily ? "H6" : "H1"
 
 if timeframe.in_seconds() > timeframe.in_seconds(ltf)
     runtime.error("Pakai chart " + (isDaily ? "M90" : "M30") + " atau lebih kecil untuk rantai " + mode)
@@ -86,6 +88,20 @@ var nS = array.new_int(3, 0)
 var wS = array.new_int(3, 0)
 f_bucket(int sc) =>
     sc >= 8 ? 2 : sc >= 6 ? 1 : 0
+
+// ---------- Penanda candle MTF (kotak bernomor) ----------
+var int mStartBar = na
+var box lastBox   = na
+int prevIdx = mIdx            // nomor MTF yang baru saja selesai (kalau newMTF)
+if showMtf and newMTF and not na(mStartBar)
+    bool   mBull  = mC >= mO
+    bool   hadSw  = (swL and swLIdx == prevIdx) or (swH and swHIdx == prevIdx)
+    string tag    = mtfName + "-" + str.tostring(prevIdx) + (hadSw ? " sweep" : "")
+    lastBox := box.new(mStartBar, mH, bar_index - 1, mL, border_color=color.new(mBull ? color.green : color.red, 50), bgcolor=color.new(mBull ? color.green : color.red, 93), text=tag, text_size=size.small, text_color=color.gray, text_valign=text.align_top, text_halign=text.align_left)
+if showMtf and newHTF
+    line.new(bar_index, low, bar_index, high, extend=extend.both, color=color.new(color.gray, 55), style=line.style_dashed)
+if newMTF
+    mStartBar := bar_index
 
 if newHTF
     // catat hasil C2 sebelumnya (yang baru saja close): pO/pC sekarang = C2 tadi
@@ -172,6 +188,11 @@ if newMTF and not newHTF and swL and not doneB and showBull and mC > pL and mC >
         sigBScore := sc
         string chk = "\n" + f_ck(k1) + "C1 bearish\n" + f_ck(k2) + "C1 close " + str.tostring(c1ClosePct, "#") + "% (dekat low)\n" + f_ck(k3) + "C1 berakhir lemah\n" + f_ck(k4) + "C1 klimaks\n" + f_ck(k5) + "low C1 = low 5 candle\n" + f_ck(k6) + "sweep low C1 " + f_px(pL) + "\n" + f_ck(k7) + "sweep di MTF ke-" + str.tostring(swLIdx) + "\n" + f_ck(k8) + "MTF close > low C1 & > open\n" + f_ck(k9) + "FVG bullish TF kecil\n" + f_ck(k10) + "struktur TF kecil berubah"
         string tip = "REVERSAL BULLISH  skor " + str.tostring(sc) + "/10\n" + mode + " | MTF ke-" + str.tostring(mIdx - 1) + " close " + f_px(mC) + chk
+        if showMtf and not na(lastBox)
+            box.set_text(lastBox, mtfName + "-" + str.tostring(prevIdx) + (swLIdx == prevIdx ? " sweep +" : "") + " PEMICU BUY")
+            box.set_border_color(lastBox, color.green)
+            box.set_border_width(lastBox, 2)
+            box.set_text_color(lastBox, color.green)
         label.new(bar_index, low, "BUY " + str.tostring(sc), style=label.style_label_up, color=sc >= 8 ? color.green : sc >= 6 ? color.new(color.green, 30) : color.new(color.green, 55), textcolor=color.white, size=size.small, tooltip=tip)
         alert(syminfo.ticker + " REVERSAL BULLISH skor " + str.tostring(sc) + "/10 (" + mode + "): sweep low C1 " + f_px(pL) + ", MTF close " + f_px(mC) + " > open " + f_px(hO), alert.freq_once_per_bar)
 
@@ -192,6 +213,11 @@ if newMTF and not newHTF and swH and not doneS and showBear and mC < pH and mC <
         sigSScore := sc
         string chk = "\n" + f_ck(k1) + "C1 bullish\n" + f_ck(k2) + "C1 close " + str.tostring(c1ClosePct, "#") + "% (dekat high)\n" + f_ck(k3) + "C1 berakhir lemah\n" + f_ck(k4) + "C1 klimaks\n" + f_ck(k5) + "high C1 = high 5 candle\n" + f_ck(k6) + "sweep high C1 " + f_px(pH) + "\n" + f_ck(k7) + "sweep di MTF ke-" + str.tostring(swHIdx) + "\n" + f_ck(k8) + "MTF close < high C1 & < open\n" + f_ck(k9) + "FVG bearish TF kecil\n" + f_ck(k10) + "struktur TF kecil berubah"
         string tip = "REVERSAL BEARISH  skor " + str.tostring(sc) + "/10\n" + mode + " | MTF ke-" + str.tostring(mIdx - 1) + " close " + f_px(mC) + chk
+        if showMtf and not na(lastBox)
+            box.set_text(lastBox, mtfName + "-" + str.tostring(prevIdx) + (swHIdx == prevIdx ? " sweep +" : "") + " PEMICU SELL")
+            box.set_border_color(lastBox, color.red)
+            box.set_border_width(lastBox, 2)
+            box.set_text_color(lastBox, color.red)
         label.new(bar_index, high, "SELL " + str.tostring(sc), style=label.style_label_down, color=sc >= 8 ? color.red : sc >= 6 ? color.new(color.red, 30) : color.new(color.red, 55), textcolor=color.white, size=size.small, tooltip=tip)
         alert(syminfo.ticker + " REVERSAL BEARISH skor " + str.tostring(sc) + "/10 (" + mode + "): sweep high C1 " + f_px(pH) + ", MTF close " + f_px(mC) + " < open " + f_px(hO), alert.freq_once_per_bar)
 
