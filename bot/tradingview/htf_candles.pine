@@ -1,0 +1,381 @@
+//@version=5
+// Candle HTF di kanan chart + garis referensi (jurnal-trading)
+// Rantai: Daily - H6 - M90  atau  H4 - H1 - M15. Chart utama: M15.
+// Semua candle HTF dibentuk dari candle chart sendiri (tidak perlu membuka timeframe H6/M90 di chart).
+indicator("Candle HTF + Referensi (jurnal-trading)", shorttitle="HTF Candle", overlay=true, max_lines_count=500, max_boxes_count=500, max_labels_count=500)
+
+TZ = "America/New_York"
+
+// ======================= Pengaturan =======================
+mode   = input.string("Daily - H6 - M90", "Rantai timeframe", options=["Daily - H6 - M90", "H4 - H1 - M15"])
+isD    = mode == "Daily - H6 - M90"
+
+gC = "Candle HTF di kanan chart"
+cBull   = input.color(color.new(#089981, 0), "Warna bullish", group=gC, inline="c")
+cBear   = input.color(color.new(#F23645, 0), "bearish", group=gC, inline="c")
+cWidth  = input.int(3, "Lebar candle (bar)", minval=1, maxval=10, group=gC)
+cOffset = input.int(6, "Jarak dari candle terakhir (bar)", minval=1, maxval=50, group=gC)
+cGap    = input.int(4, "Jarak antar kelompok (bar)", minval=1, maxval=20, group=gC)
+cTime   = input.bool(true, "Tulis jam di bawah tiap candle (NY)", group=gC)
+
+f_styleIn(string s) =>
+    s == "Solid" ? line.style_solid : s == "Putus-putus" ? line.style_dashed : line.style_dotted
+
+gH = "Tingkat 1: HTF (Daily / H4)"
+hShow  = input.bool(true, "Tampilkan", group=gH)
+hN     = input.int(3, "Jumlah candle", minval=1, maxval=10, group=gH)
+hOpen  = input.bool(true, "Garis open", group=gH)
+hSty   = input.string("Solid", "Style", options=["Solid", "Putus-putus", "Titik-titik"], group=gH, inline="h")
+hW     = input.int(2, "Tebal", minval=1, maxval=4, group=gH, inline="h")
+hCol   = input.color(color.new(color.blue, 0), "", group=gH, inline="h")
+
+gM = "Tingkat 2: MTF (H6 / H1)"
+mShow  = input.bool(true, "Tampilkan", group=gM)
+mN     = input.int(4, "Jumlah candle", minval=1, maxval=10, group=gM)
+mOpen  = input.bool(true, "Garis open (semua open MTF di dalam HTF yang berjalan, mis. 4 open H6 hari ini)", group=gM)
+mSty   = input.string("Putus-putus", "Style", options=["Solid", "Putus-putus", "Titik-titik"], group=gM, inline="m")
+mW     = input.int(1, "Tebal", minval=1, maxval=4, group=gM, inline="m")
+mCol   = input.color(color.new(color.purple, 0), "", group=gM, inline="m")
+
+gL = "Tingkat 3: LTF (M90, hanya rantai Daily)"
+lShow  = input.bool(true, "Tampilkan", group=gL)
+lN     = input.int(4, "Jumlah candle", minval=1, maxval=10, group=gL)
+lOpen  = input.bool(true, "Garis open", group=gL)
+lSty   = input.string("Titik-titik", "Style", options=["Solid", "Putus-putus", "Titik-titik"], group=gL, inline="l")
+lW     = input.int(1, "Tebal", minval=1, maxval=4, group=gL, inline="l")
+lCol   = input.color(color.new(color.orange, 0), "", group=gL, inline="l")
+
+gOL = "Panjang garis open"
+olEnd  = input.string("Sampai kotak HTF di kanan", "Garis open ditarik", options=["Sampai harga sekarang", "Sampai kotak HTF di kanan"], group=gOL)
+
+gR = "C1 (Daily) / Referensi H4 jam 05:00"
+rShow  = input.bool(true, "Garis high & low C1 / H4 05:00", group=gR)
+rDays  = input.int(1, "Riwayat (hari): 1 = hanya hari ini", minval=1, maxval=7, group=gR)
+rSty   = input.string("Solid", "Style", options=["Solid", "Putus-putus", "Titik-titik"], group=gR, inline="r")
+rW     = input.int(2, "Tebal", minval=1, maxval=4, group=gR, inline="r")
+rColH  = input.color(color.new(color.red, 0), "High", group=gR, inline="rc")
+rColL  = input.color(color.new(color.green, 0), "Low", group=gR, inline="rc")
+
+gQ = "Likuiditas (3 hari ke belakang)"
+qShow  = input.bool(true, "High/low Daily (PDH/PDL)", group=gQ)
+qSess  = input.bool(true, "Sesi Asia 20-00, London 02-05, NY AM 07-11, NY PM 13:30-16 (hanya rantai H4)", group=gQ)
+qSty   = input.string("Putus-putus", "Style", options=["Solid", "Putus-putus", "Titik-titik"], group=gQ, inline="q")
+qW     = input.int(1, "Tebal", minval=1, maxval=4, group=gQ, inline="q")
+qColH  = input.color(color.new(color.maroon, 0), "High", group=gQ, inline="qc")
+qColL  = input.color(color.new(color.teal, 0), "Low", group=gQ, inline="qc")
+qSwept = input.string("Tetap, tapi samar", "Level yang sudah tersapu", options=["Tetap, tapi samar", "Tetap, sama", "Sembunyikan"], group=gQ)
+
+gF = "Garis high/low 4 M90 terakhir (rantai Daily)"
+fShow  = input.bool(true, "Tampilkan (4 M90 terakhir yang sudah close, bergulir)", group=gF)
+fSty   = input.string("Titik-titik", "Style", options=["Solid", "Putus-putus", "Titik-titik"], group=gF, inline="f")
+fW     = input.int(1, "Tebal", minval=1, maxval=4, group=gF, inline="f")
+fColH  = input.color(color.new(color.gray, 0), "High", group=gF, inline="fc")
+fColL  = input.color(color.new(color.gray, 0), "Low", group=gF, inline="fc")
+
+gV = "Garis vertikal opening"
+vD     = input.bool(true, "Opening Daily (17:00 NY)", group=gV)
+vDN    = input.int(5, "Berapa hari", minval=1, maxval=30, group=gV)
+vDSty  = input.string("Titik-titik", "Style", options=["Solid", "Putus-putus", "Titik-titik"], group=gV, inline="vd")
+vDW    = input.int(1, "Tebal", minval=1, maxval=4, group=gV, inline="vd")
+vDCol  = input.color(color.new(color.gray, 30), "", group=gV, inline="vd")
+vW     = input.bool(true, "Opening Weekly (Minggu 17:00 NY)", group=gV)
+vWN    = input.int(2, "Berapa minggu", minval=1, maxval=10, group=gV)
+vWSty  = input.string("Solid", "Style", options=["Solid", "Putus-putus", "Titik-titik"], group=gV, inline="vw")
+vWW    = input.int(2, "Tebal", minval=1, maxval=4, group=gV, inline="vw")
+vWCol  = input.color(color.new(color.navy, 0), "", group=gV, inline="vw")
+
+// ======================= Timeframe =======================
+tf1 = isD ? "D" : "240"
+tf2 = isD ? "360" : "60"
+tf3 = "90"
+n1  = isD ? "Daily" : "H4"
+n2  = isD ? "H6" : "H1"
+n3  = "M90"
+chartSec = timeframe.in_seconds()
+barMs    = chartSec * 1000
+ok1 = chartSec <= timeframe.in_seconds(tf1)
+ok2 = chartSec <= timeframe.in_seconds(tf2)
+ok3 = isD and chartSec <= timeframe.in_seconds(tf3)
+
+// ======================= Pelacak candle =======================
+type Cdl
+    float o
+    float h
+    float l
+    float c
+    int   t
+    int   b
+    int   hb
+    int   lb
+
+// Membentuk candle timeframe tf dari candle chart. Mengembalikan true di bar pertama candle baru.
+f_track(array<Cdl> a, string tf, int keep) =>
+    bool isNew = ta.change(time(tf)) != 0
+    if isNew or array.size(a) == 0
+        array.push(a, Cdl.new(open, high, low, close, time(tf), bar_index, bar_index, bar_index))
+        if array.size(a) > keep
+            array.shift(a)
+    else
+        Cdl k = array.last(a)
+        if high > k.h
+            k.h  := high
+            k.hb := bar_index
+        if low < k.l
+            k.l  := low
+            k.lb := bar_index
+        k.c := close
+    isNew
+
+var array<Cdl> dA = array.new<Cdl>()   // Daily (selalu, untuk PDH/PDL dan garis vertikal)
+var array<Cdl> a1 = array.new<Cdl>()   // HTF
+var array<Cdl> a2 = array.new<Cdl>()   // MTF
+var array<Cdl> a3 = array.new<Cdl>()   // M90
+newD = f_track(dA, "D", 40)
+new1 = f_track(a1, tf1, 60)
+new2 = f_track(a2, tf2, 40)
+new3 = f_track(a3, tf3, 12)
+
+// Weekly opening
+var array<int> wB = array.new<int>()
+if ta.change(time("W")) != 0
+    array.push(wB, bar_index)
+    if array.size(wB) > 12
+        array.shift(wB)
+
+// ======================= Level likuiditas =======================
+type Lvl
+    float  p
+    bool   hi
+    int    b
+    int    t
+    string nm
+    bool   sw = false
+
+var array<Lvl> qD = array.new<Lvl>()   // PDH/PDL
+var array<Lvl> qS = array.new<Lvl>()   // sesi
+
+// Saat hari baru: high/low hari kemarin jadi level
+if newD and array.size(dA) >= 2
+    Cdl y = array.get(dA, array.size(dA) - 2)
+    array.push(qD, Lvl.new(y.h, true, y.hb, y.t, "PDH"))
+    array.push(qD, Lvl.new(y.l, false, y.lb, y.t, "PDL"))
+    while array.size(qD) > 6
+        array.shift(qD)
+
+f_sess(string ss, string nm, array<Lvl> arr) =>
+    bool inS = not na(time(timeframe.period, ss, TZ))
+    var float sh  = na
+    var float sl  = na
+    var int   shb = na
+    var int   slb = na
+    var int   st  = na
+    if inS and not inS[1]
+        sh  := high
+        sl  := low
+        shb := bar_index
+        slb := bar_index
+        st  := time
+    else if inS
+        if high > sh
+            sh  := high
+            shb := bar_index
+        if low < sl
+            sl  := low
+            slb := bar_index
+    if inS[1] and not inS and not na(sh)
+        array.push(arr, Lvl.new(sh, true, shb, st, nm + " H"))
+        array.push(arr, Lvl.new(sl, false, slb, st, nm + " L"))
+        while array.size(arr) > 30
+            array.shift(arr)
+
+f_sess("2000-0000", "Asia", qS)
+f_sess("0200-0500", "London", qS)
+f_sess("0700-1100", "NY AM", qS)
+f_sess("1330-1600", "NY PM", qS)
+
+// Tandai level yang tersapu (harga menembus level setelah level terbentuk)
+f_sweep(array<Lvl> arr) =>
+    int n = array.size(arr)
+    if n > 0
+        for i = 0 to n - 1
+            Lvl v = array.get(arr, i)
+            if not v.sw and bar_index > v.b
+                if v.hi ? high > v.p : low < v.p
+                    v.sw := true
+f_sweep(qD)
+f_sweep(qS)
+
+// ======================= Gambar (di bar terakhir) =======================
+var array<line>  gLn = array.new<line>()
+var array<box>   gBx = array.new<box>()
+var array<label> gLb = array.new<label>()
+
+f_ln(int x1, float y1, int x2, float y2, color col, string sty, int w) =>
+    array.push(gLn, line.new(x1, y1, x2, y2, color=col, style=f_styleIn(sty), width=w))
+f_lbl(int x, float y, string t, color col, string st) =>
+    array.push(gLb, label.new(x, y, t, style=st, color=color.new(color.white, 100), textcolor=col, size=size.tiny))
+f_ahead(int tEnd) =>
+    math.max(0, int(math.ceil((tEnd - time_close) / barMs)))
+f_hm(int t) =>
+    str.format_time(t, "HH:mm", TZ)
+f_day(int t) =>
+    // candle Daily forex dimulai 17:00 NY hari sebelumnya -> geser 7 jam supaya nama harinya hari dagang
+    int d = dayofweek(t + 7 * 3600000, TZ)
+    string nm = d == dayofweek.monday ? "Sen" : d == dayofweek.tuesday ? "Sel" : d == dayofweek.wednesday ? "Rab" : d == dayofweek.thursday ? "Kam" : d == dayofweek.friday ? "Jum" : d == dayofweek.saturday ? "Sab" : "Min"
+    nm + " " + str.format_time(t + 7 * 3600000, "d/M", TZ)
+
+// Kelompok candle di kanan. Mengembalikan x setelah kelompok dan x tengah candle terakhir.
+f_group(array<Cdl> a, int n, int x0, string nm, bool isDaily) =>
+    int sz  = array.size(a)
+    int cnt = math.min(n, sz)
+    int x   = x0
+    float top = high
+    int xLast = x0
+    if cnt > 0
+        for i = sz - cnt to sz - 1
+            Cdl k = array.get(a, i)
+            color col = k.c >= k.o ? cBull : cBear
+            int xm = x + int(cWidth / 2)
+            array.push(gLn, line.new(xm, k.h, xm, k.l, color=col, width=1))
+            array.push(gBx, box.new(x, math.max(k.o, k.c), x + cWidth - 1, math.min(k.o, k.c), border_color=col, border_width=1, bgcolor=color.new(col, k.c >= k.o ? 70 : 20)))
+            if cTime
+                f_lbl(xm, k.l, isDaily ? f_day(k.t) : f_hm(k.t), color.gray, label.style_label_up)
+            top := math.max(top, k.h)
+            xLast := xm
+            x += cWidth + 1
+        f_lbl(x0 + int((x - x0) / 2), top, nm, color.gray, label.style_label_down)
+    [x + cGap, xLast]
+
+if barstate.islast
+    for o in gLn
+        line.delete(o)
+    for o in gBx
+        box.delete(o)
+    for o in gLb
+        label.delete(o)
+    array.clear(gLn)
+    array.clear(gBx)
+    array.clear(gLb)
+
+    int nowX = bar_index
+    // ---- Kelompok candle di kanan ----
+    int x = bar_index + cOffset
+    int xH = na
+    int xM = na
+    int xL = na
+    if hShow and ok1
+        [nx, xl_] = f_group(a1, hN, x, n1, isD)
+        xH := xl_
+        x  := nx
+    if mShow and ok2
+        [nx, xl_] = f_group(a2, mN, x, n2, false)
+        xM := xl_
+        x  := nx
+    if isD and lShow
+        if ok3
+            [nx, xl_] = f_group(a3, lN, x, n3, false)
+            xL := xl_
+            x  := nx
+        else
+            f_lbl(x, close, "M90: buka chart <= M90", color.gray, label.style_label_left)
+
+    // ---- Garis open ----
+    if hOpen and ok1 and array.size(a1) > 0
+        Cdl k = array.last(a1)
+        int xe = olEnd == "Sampai harga sekarang" or na(xH) ? nowX : xH
+        f_ln(k.b, k.o, xe, k.o, hCol, hSty, hW)
+        f_lbl(xe, k.o, "Open " + n1, hCol, label.style_label_left)
+    if mOpen and ok2 and array.size(a2) > 0 and array.size(a1) > 0
+        int t1 = array.last(a1).t
+        int xe = olEnd == "Sampai harga sekarang" or na(xM) ? nowX : xM
+        int sz2 = array.size(a2)
+        int k2 = 0
+        for i = sz2 - 1 to 0
+            Cdl k = array.get(a2, i)
+            if k.t < t1 or k2 >= 6
+                break
+            f_ln(k.b, k.o, xe, k.o, mCol, mSty, mW)
+            f_lbl(xe, k.o, "Open " + n2 + " " + f_hm(k.t), mCol, label.style_label_left)
+            k2 += 1
+    if isD and lOpen and ok3 and array.size(a3) > 0
+        Cdl k = array.last(a3)
+        int xe = olEnd == "Sampai harga sekarang" or na(xL) ? nowX : xL
+        f_ln(k.b, k.o, xe, k.o, lCol, lSty, lW)
+        f_lbl(xe, k.o, "Open M90 " + f_hm(k.t), lCol, label.style_label_left)
+
+    // ---- C1 Daily (rantai Daily) ----
+    int szD = array.size(dA)
+    if rShow and isD and szD >= 2
+        for d = 0 to rDays - 1
+            int iC2 = szD - 1 - d
+            if iC2 < 1
+                break
+            Cdl c1 = array.get(dA, iC2 - 1)
+            int xe = iC2 == szD - 1 ? bar_index + f_ahead(time_close("D")) : array.get(dA, iC2 + 1).b - 1
+            f_ln(c1.hb, c1.h, xe, c1.h, rColH, rSty, rW)
+            f_ln(c1.lb, c1.l, xe, c1.l, rColL, rSty, rW)
+            f_lbl(xe, c1.h, "C1 High", rColH, label.style_label_left)
+            f_lbl(xe, c1.l, "C1 Low", rColL, label.style_label_left)
+
+    // ---- Referensi H4 jam 05:00 (rantai H4) ----
+    if rShow and not isD and array.size(a1) > 0
+        int sz1 = array.size(a1)
+        int found = 0
+        for i = sz1 - 1 to 0
+            if found >= rDays
+                break
+            Cdl k = array.get(a1, i)
+            if hour(k.t, TZ) == 5
+                int xe = i + 2 <= sz1 - 1 ? array.get(a1, i + 2).b - 1 : bar_index + f_ahead(k.t + 8 * 3600000)
+                f_ln(k.b, k.h, xe, k.h, rColH, rSty, rW)
+                f_ln(k.b, k.l, xe, k.l, rColL, rSty, rW)
+                f_lbl(xe, k.h, "H4 05:00 High", rColH, label.style_label_left)
+                f_lbl(xe, k.l, "H4 05:00 Low", rColL, label.style_label_left)
+                found += 1
+
+    // ---- Likuiditas ----
+    int tMin = szD >= 4 ? array.get(dA, szD - 4).t : 0     // awal hari 3 hari ke belakang
+    int qEnd = bar_index + 3
+    if qShow and array.size(qD) > 0
+        int nq = array.size(qD)
+        for i = 0 to nq - 1
+            Lvl v = array.get(qD, i)
+            // rantai Daily: high/low kemarin sudah digambar sebagai C1
+            bool isC1 = isD and rShow and i >= nq - 2
+            if not isC1 and not (v.sw and qSwept == "Sembunyikan")
+                int ago = int((nq - 1 - i) / 2) + 1
+                color col = v.hi ? qColH : qColL
+                col := v.sw and qSwept == "Tetap, tapi samar" ? color.new(col, 75) : col
+                f_ln(v.b, v.p, qEnd, v.p, col, qSty, qW)
+                f_lbl(qEnd, v.p, v.nm + "-" + str.tostring(ago) + (v.sw ? " (tersapu)" : ""), col, label.style_label_left)
+    if qSess and not isD and array.size(qS) > 0
+        for i = 0 to array.size(qS) - 1
+            Lvl v = array.get(qS, i)
+            if v.t >= tMin and not (v.sw and qSwept == "Sembunyikan")
+                color col = v.hi ? qColH : qColL
+                col := v.sw and qSwept == "Tetap, tapi samar" ? color.new(col, 75) : col
+                f_ln(v.b, v.p, qEnd, v.p, col, qSty, qW)
+                f_lbl(qEnd, v.p, v.nm + " " + str.format_time(v.t, "d/M", TZ) + (v.sw ? " (tersapu)" : ""), col, label.style_label_left)
+
+    // ---- 4 M90 terakhir yang sudah close (rantai Daily) ----
+    if isD and fShow and ok3 and array.size(a3) >= 2
+        int sz3 = array.size(a3)
+        int xe  = bar_index + 2
+        for i = sz3 - 2 to math.max(0, sz3 - 5)
+            Cdl k = array.get(a3, i)
+            f_ln(k.hb, k.h, xe, k.h, fColH, fSty, fW)
+            f_ln(k.lb, k.l, xe, k.l, fColL, fSty, fW)
+            f_lbl(xe, k.h, f_hm(k.t) + " H", fColH, label.style_label_left)
+            f_lbl(xe, k.l, f_hm(k.t) + " L", fColL, label.style_label_left)
+
+    // ---- Garis vertikal opening ----
+    if vW and array.size(wB) > 0
+        int nw = array.size(wB)
+        for i = nw - 1 to math.max(0, nw - vWN)
+            int b = array.get(wB, i)
+            array.push(gLn, line.new(b, low, b, high, extend=extend.both, color=vWCol, style=f_styleIn(vWSty), width=vWW))
+    if vD and szD > 0
+        for i = szD - 1 to math.max(0, szD - vDN)
+            Cdl k = array.get(dA, i)
+            if not (vW and array.includes(wB, k.b))
+                array.push(gLn, line.new(k.b, low, k.b, high, extend=extend.both, color=vDCol, style=f_styleIn(vDSty), width=vDW))
