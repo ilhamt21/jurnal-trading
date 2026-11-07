@@ -50,7 +50,7 @@ lCol   = input.color(color.new(color.orange, 0), "", group=gL, inline="l")
 
 
 gR = "C1 (Daily) / Referensi H4 jam 05:00"
-rShow  = input.bool(false, "Garis high & low C1 / H4 05:00", group=gR)
+rShow  = input.bool(true, "Garis high & low C1 / H4 05:00", group=gR)
 rDays  = input.int(1, "Riwayat (hari): 1 = hanya hari ini", minval=1, maxval=7, group=gR)
 rSty   = input.string("Solid", "Style", options=["Solid", "Putus-putus", "Titik-titik"], group=gR, inline="r")
 rW     = input.int(2, "Tebal", minval=1, maxval=4, group=gR, inline="r")
@@ -70,8 +70,8 @@ qSwept = input.string("Tetap, tapi samar", "Level yang sudah tersapu", options=[
 gP = "Garis high/low 1 candle terakhir yang sudah close"
 pMtf   = input.bool(true, "Di kelompok H6 / H1", group=gP)
 pLtf   = input.bool(true, "Di kelompok M90", group=gP)
-pSty   = input.string("Putus-putus", "Style", options=["Solid", "Putus-putus", "Titik-titik"], group=gP, inline="p")
-pW     = input.int(1, "Tebal", minval=1, maxval=4, group=gP, inline="p")
+pSty   = input.string("Solid", "Style", options=["Solid", "Putus-putus", "Titik-titik"], group=gP, inline="p")
+pW     = input.int(2, "Tebal", minval=1, maxval=4, group=gP, inline="p")
 pColH  = input.color(color.new(color.red, 0), "High", group=gP, inline="pc")
 pColL  = input.color(color.new(color.green, 0), "Low", group=gP, inline="pc")
 
@@ -408,11 +408,15 @@ if barstate.islast
         int xs = f_xOf(xs2, sz2 - 2, s2)
         f_ln(xs, k.h, e2, k.h, pColH, pSty, pW)
         f_ln(xs, k.l, e2, k.l, pColL, pSty, pW)
+        f_lbl(e2, k.h, "C1 H", pColH, label.style_label_left)
+        f_lbl(e2, k.l, "C1 L", pColL, label.style_label_left)
     if isD and pLtf and ok3 and sz3 >= 2
         Cdl k = array.get(a3, sz3 - 2)
         int xs = f_xOf(xs3, sz3 - 2, s3)
         f_ln(xs, k.h, e3, k.h, pColH, pSty, pW)
         f_ln(xs, k.l, e3, k.l, pColL, pSty, pW)
+        f_lbl(e3, k.h, "C1 H", pColH, label.style_label_left)
+        f_lbl(e3, k.l, "C1 L", pColL, label.style_label_left)
 
     // ---- 4 M90 terakhir yang sudah close (rantai Daily), dari candle M90-nya di panel ----
     if isD and fShow and ok3 and sz3 >= 2
