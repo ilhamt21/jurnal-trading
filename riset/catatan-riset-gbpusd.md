@@ -68,7 +68,18 @@ Wick C1 ≥60% → WR 63%; ≥70% → WR 76% (±2/thn); ≥80% → 100% (9 trade
 1. **Selection bias:** hasil awal "+0,27R/trade, win 62%" hanya memakai hari dengan data M5 Dukascopy lengkap. Hari yang terbuang ternyata rugi. Sudah dikoreksi.
 2. **Jam data Exness:** sempat dianggap GMT+0 sepanjang waktu → candle bergeser 1 jam di sebagian periode, sehingga Exness dan Dukascopy tampak sangat berbeda. Setelah diperbaiki: 99% setup memberi hasil sama.
 3. Klaim "perbedaan broker bisa menghapus profit" → **ditarik**; penyebabnya bug zona waktu.
-4. Filter wick ≥30% ditemukan dari data yang sempat bias; di sampel GBPUSD Mar–Sep 2026 (tanpa filter news) filter ini tidak bertahan.
+4. Filter wick ≥30% ditemukan dari data yang sempat bias.
+5. **Data getdata.finance (GBPUSD M1 Mar–Sep 2026) tidak valid**: dibanding data Exness, levelnya berbeda 10–190 pip pada jam yang sama (korelasi perubahan hanya 0,84). Kesimpulan "uji 2026" yang memakai data ini **ditarik**. Untuk 2026 hanya pakai data Exness.
+
+## 5b. Strategi inside range Senin–Selasa (breakout)
+
+- Syarat: open & close Selasa di dalam high–low Senin (wick boleh keluar).
+- Rabu: stop order di high/low Senin; Kamis: high/low tertinggi–terendah Senin–Rabu; tidak terpicu = skip; tutup Jumat close.
+- ±24 minggu valid per tahun (GBPUSD).
+- Breakout terkonfirmasi H4 (candle H4 NY close di luar range, SL tengah range, TP 1,5R): 2025 +0,67R/trade (win 71%), tapi 2018–2024 −0,04R.
+- Hasil bergantung kondisi pasar: menang di tahun tren kuat (2022: −1.437 pip, 2025: +965 pip; win ±70%), kalah di tahun menyamping (2024: −209 pip, range harian terkecil 80 pip; win 33%).
+- Bukan karena perubahan jam server Exness (konversi jam sudah dicek; broker sama di semua tahun).
+- Cocok dipasangkan dengan strategi reversal (yang lemah di tahun tren).
 
 ## 6. Pelajaran metodologi
 
