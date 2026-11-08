@@ -1,5 +1,10 @@
 # Catatan Riset Strategi C1 → H6 → Entry 05:00 NY (GBP/USD)
 
+> **STATUS: TIDAK VALID (ditutup).** Uji 2026 (Jan–Jun, data Exness, aturan tidak diubah):
+> Reversal −2,0R (11 trade), Breakout inside range −4,1R (10 trade), gabungan −6,1R, drawdown −11,1R.
+> Keuntungan 2024–2026 hampir seluruhnya berasal dari satu tahun tren (2025). Tidak ada edge yang
+> bertahan di berbagai kondisi pasar. Jangan dipakai untuk trading real.
+
 Ringkasan semua uji yang sudah dilakukan, termasuk kesalahan yang sudah dikoreksi.
 Angka di sini adalah angka **setelah koreksi** (lihat bagian "Koreksi").
 
