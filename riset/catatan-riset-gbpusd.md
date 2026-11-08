@@ -98,3 +98,14 @@ Wick C1 ≥60% → WR 63%; ≥70% → WR 76% (±2/thn); ≥80% → 100% (9 trade
 - EA MT5 / indikator TradingView untuk versi A, C, Ketat, dan Super selektif (alert + bisa di-backtest sendiri di Strategy Tester Exness).
 - Ekspor data Exness EURGBP (dan GBPJPY, EURJPY) dengan `ExportDataBacktest.mq5` untuk cek kandidat EURGBP.
 - Uji forward di akun demo dengan risiko kecil, catat di jurnal.
+
+## 8. Strategi EMA (Weekly EMA20 → Daily EMA10/20 → H1)
+
+- Aturan: bias dari close Weekly terakhir vs EMA 20; Daily kemarin close di atas (BUY) / di bawah (SELL) EMA 10 dan 20;
+  H1: harga turun (BUY) / naik (SELL) dulu melewati open harian 17:00 NY, lalu candle H1 close kembali melewati open
+  antara 02:00–11:00 NY → entry di close. Spread 1 pip. Contoh: `contoh-strategi-ema.png`.
+- 2026 (Jan–Jun, Exness): 57 trade. Optimasi RR (0,5–5), SL (low dip / candle entry / tetap 15–30 pip), tahan 1–5 hari:
+  terbaik **SL di bawah low dip, RR 2–2,25, tutup 17:00 NY → +0,13 s/d +0,19R/trade**, win ±47%, DD −6R.
+  **Target +0,5R tidak tercapai** dengan RR saja. Daftar trade: `ema-trades-2026.csv`.
+- Konfigurasi yang sama 2018–2025: 857 trade, −0,05R/trade (−40,8R), hanya 2022 dan 2024 positif.
+- Filter sesi / ukuran risiko / arah: tidak ada yang konsisten di 2026 dan 2018–2025.
