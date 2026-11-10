@@ -123,6 +123,19 @@ Server FundedNext = UTC+2/+3 (EET); H4/H1 disusun ulang ke jam New York, hari mu
 
 Hanya varian Q1 yang konsisten di dua periode (±1 trade/minggu). Sampel kecil (63 trade); perlu uji forward.
 
+### 6b. Target 5%/bulan — hitungan dari data FundedNext
+
+| Metode | Trade/bln | R/bln rata2 | Bln negatif | Bln terburuk | DD total |
+|---|---|---|---|---|---|
+| Tokyo Q1 + inside (dasar) | 1,7 | +0,50 | 37% | −2,2R | −3,2R |
+| Tokyo Q1 tanpa inside | 3,0 | +0,69 | 40% | −3,7R | −4,7R |
+| + London Q1 (03:00 NY) | 5,1 | +0,86 | 43% | −4,7R | −6,6R |
+
+London Q1: −0,23R di periode latih, +0,37R di uji → tidak stabil. New York 09:00: rugi di kedua periode. Tokyo sore 22:00: tidak stabil.
+
+5%/bulan butuh risiko **10% per trade** (dasar) atau **5,8%** (gabungan) → DD historis −33% / −38% akun; rugi beruntun 4 = −40% / −23%. **Tidak mungkin di prop firm** (batas harian 5%, total 10%).
+Yang realistis: risiko 1% → +0,5 s/d +0,9%/bulan, DD −3 s/d −7%. Risiko 2% pada gabungan → +1,7%/bln tapi DD −13% (gagal challenge).
+
 ## 5. Yang dibutuhkan untuk lanjut
 
 Ekspor dari MT5 Exness dengan `ExportDataBacktest.mq5`:
