@@ -103,6 +103,26 @@ Scan 1.200 kombinasi di JP225 Oanda M5: 6 jam entry (09:00, 10:00, 12:30, 15:10 
 
 **Kesimpulan: setup 1×/minggu dengan WR ≥80% pada RR 1:1 tidak ditemukan di Nikkei.** Dengan RR 1:1, WR yang realistis dan stabil di pasar ini ±50–57%.
 
+## 6. Data FundedNext JP225 (M5/H1, Jan 2024 – Nov 2026) — pola inside candle H4 sebelum open 18:00 NY
+
+Server FundedNext = UTC+2/+3 (EET); H4/H1 disusun ulang ke jam New York, hari mulai 18:00. Spread median 15 poin. Ada jeda data 1 jam sebelum open (16:00/17:00 NY).
+
+**Pengamatan user terbukti:** candle 14:00–18:00 NY close di dalam range candle 10:00–14:00 pada 68% hari (inside penuh 38%), slot ini range-nya terkecil; candle 18:00–22:00 (Tokyo buka) median 2,7× lebih besar. Tapi ekspansi juga terjadi tanpa pola (1,9×) → efek jam, bukan pola. Arah 8 jam berikut vs candle A: 49% (koin).
+
+**Manipulasi di Q1–Q4 (340 hari inside):** 70% hari diawali sweep (wick keluar, H1 close kembali), 27% breakout bersih. Sweep 52% di Q1, 32% Q2, 15% Q3. Yang disapu: tepi candle B 55%, tepi range 10:00–18:00 31%, PDH/PDL 14%. Setelah sweep tepi candle B arah = koin (59% vs 41% di dua periode). Sweep tepi range sore penuh: 55% / 65% berbalik (n 33 / 40).
+
+**Model 1** (sweep tepi range sore di Q1–Q3, H1 close kembali → entry lawan sweep, SL luar wick + 10% range (min 20 poin), tutup 02:00 NY). Latih Jan24–Jun25 / uji Jul25–Nov26:
+
+| Varian | Latih | Uji |
+|---|---|---|
+| TP 2R | n=67, −0,05R | n=77, +0,21R |
+| TP sisi lain range | +0,07R | +0,25R |
+| TP 1R | +0,01R | +0,09R |
+| Level PDH/PDL | −0,04R | −0,38R |
+| **Hanya Q1 (18:00–19:00), TP 2R** | **n=32, win 44%, +0,24R, DD −3,2R** | **n=31, win 42%, +0,22R, DD −4,2R** |
+
+Hanya varian Q1 yang konsisten di dua periode (±1 trade/minggu). Sampel kecil (63 trade); perlu uji forward.
+
 ## 5. Yang dibutuhkan untuk lanjut
 
 Ekspor dari MT5 Exness dengan `ExportDataBacktest.mq5`:
