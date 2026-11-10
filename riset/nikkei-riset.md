@@ -1,6 +1,6 @@
 # Riset Nikkei 225 (JP225) untuk trading harian
 
-> **STATUS: AWAL — belum diverifikasi dengan harga yang bisa ditradingkan.**
+> **STATUS: diuji dengan harga CFD (Oanda 2012–2020). Belum ada strategi harian yang mencapai +0,5R; ORB Tokyo ±+0,1R. Belum diuji dengan data Exness.**
 > Semua angka di sini dari **cash index Nikkei 225** (harian, 2006–Nov 2024), bukan dari CFD JP225 Exness.
 > Harga *open* cash index punya masalah "stale open" (lihat bagian 6). Angka strategi gap kemungkinan **terlalu bagus**.
 > Langkah wajib berikutnya: uji ulang dengan data JP225 M5/H1 dari MT5 Exness.
@@ -68,6 +68,29 @@ Ini membuat strategi gap-lanjut tampak lebih bagus daripada kenyataan. Korelasi 
 Artinya sebagian "lanjutan gap" pada tabel di bagian 3 adalah gap itu sendiri yang terlambat tercatat. Berapa besar porsinya hanya bisa dihitung dengan data CFD/futures.
 
 Di **CFD JP225** (buka ±23 jam) tidak ada "gap" jam 09:00 JST, karena harganya sudah bergerak saat sesi AS. Versi yang bisa diuji di JP225: **pergerakan 15:15 JST (tutup Tokyo kemarin) → 09:00 JST ≥1% → trading searah selama sesi Tokyo** dengan SL/TP intraday sebenarnya.
+
+## 4b. Uji intraday dengan harga CFD (JP225 Oanda M1 2005–Mei 2020, Histdata M1 2010–2018)
+
+Sumber: repo GitHub `FutureSharks/financial-data`. Jam data Oanda = UTC (diverifikasi: close cash 15:00 JST cocok 99,4% dengan CFD 06:00 UTC). Data Oanda sebelum 2012 jarang pada sesi Tokyo, jadi efektif 2012–2020. Gambar: `nikkei-breakout.png`.
+
+**Gap/overnight-lanjut diuji ulang dengan harga CFD asli → ±0R** (ambang 0,5–1,5%, SL 0,5–1% harga, exit 15:10 JST: −0,09 s/d +0,04R). Kesimpulan bagian 3 **ditarik**: itu artefak stale open cash index.
+
+**Breakout berbasis jam** (satu trade/hari, breakout pertama dari range dengan stop order, spread 10 poin, SL sisi lain range atau tengah range, RR 1–5, tutup paksa akhir sesi). Dipilih di 2012–2014, divalidasi 2015–2020:
+
+| Anchor | Terbaik (latih) | Validasi 2015–2020 |
+|---|---|---|
+| **Tokyo 09:00 JST, range 60 mnt, SL sisi lain, RR 3** | +0,16R (n=686) | **+0,10R** (n=1278, win 51%), positif tiap tahun 2012–2020 |
+| Tokyo 09:00 tahan sampai malam | +0,17R | serupa, DD lebih dalam |
+| Range Asia 09–15 JST, trade sesi Eropa | +0,08R | – |
+| Tokyo sore 12:30 JST | +0,07R | – |
+| London 16:00 / 17:00 JST | −0,01 / −0,02R | – |
+| New York 22:30 / 23:30 JST | +0,04 / −0,03R | – |
+
+- RR 2–5 dan range 15/30/60 menit: semua +0,08 s/d +0,18R. Tidak ada yang mendekati +0,5R.
+- Filter (arah pergerakan semalam, ukuran range vs ATR, EMA20, arah, hari, jam entry): yang bagus di latih tidak bagus di validasi dan sebaliknya (mis. Selasa: −0,00R latih, +0,33R validasi; Jumat: +0,26R latih, −0,00R validasi). Tidak ada filter yang stabil.
+- **Sumber data lain (Histdata) untuk setelan yang sama: hanya +0,03R (2010–2018).** Edge ORB Tokyo kecil dan bergantung pada sumber harga.
+
+**Kesimpulan: belum ada breakout berbasis jam di Nikkei yang mencapai rata-rata +0,5R.** Yang paling layak adalah ORB Tokyo 60 menit (±+0,1R), dan itu pun belum tentu bertahan setelah spread/komisi Exness.
 
 ## 5. Yang dibutuhkan untuk lanjut
 
