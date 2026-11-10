@@ -92,6 +92,17 @@ Sumber: repo GitHub `FutureSharks/financial-data`. Jam data Oanda = UTC (diverif
 
 **Kesimpulan: belum ada breakout berbasis jam di Nikkei yang mencapai rata-rata +0,5R.** Yang paling layak adalah ORB Tokyo 60 menit (±+0,1R), dan itu pun belum tentu bertahan setelah spread/komisi Exness.
 
+## 4c. Pencarian setup mingguan WR tinggi (≥80%, RR 1:1)
+
+Scan 1.200 kombinasi di JP225 Oanda M5: 6 jam entry (09:00, 10:00, 12:30, 15:10 tahan malam, 16:00, 22:30 JST) × BUY/SELL × 28 kondisi hari sebelumnya (hari, return kemarin, gerak semalam, EMA20/50, range vs ATR, S&P semalam) × SL=TP 0,3–1,0 ATR. Spread 10 poin. Latih 2012–2016, validasi 2017–2020.
+
+- **WR tertinggi di data latih hanya 60%** (n≥40). Tidak ada satu pun kombinasi ≥70%, apalagi 80%.
+- Kombinasi dengan WR latih ≥58% → rata-rata WR validasi **42%**: angka tinggi di latih adalah kebetulan.
+- Median WR validasi semua kombinasi 44%; persentil-99 62%.
+- Satu-satunya yang ≥55% di latih **dan** validasi: BUY 15:10 JST tahan sampai pagi setelah hari naik >1%, SL=TP 0,75–1 ATR → WR 55–57%, tapi rata-rata hanya **+0,02R** di validasi (≈impas setelah biaya), ±30 trade/tahun.
+
+**Kesimpulan: setup 1×/minggu dengan WR ≥80% pada RR 1:1 tidak ditemukan di Nikkei.** Dengan RR 1:1, WR yang realistis dan stabil di pasar ini ±50–57%.
+
 ## 5. Yang dibutuhkan untuk lanjut
 
 Ekspor dari MT5 Exness dengan `ExportDataBacktest.mq5`:
